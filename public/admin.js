@@ -170,7 +170,8 @@ function renderUsersTable(users) {
         document.getElementById('users-table').innerHTML = '<div class="empty-state"><p>Nenhum usuário cadastrado</p></div>';
         return;
     }
-    document.getElementById('users-table').innerHTML = `
+    const wrap = document.getElementById('users-table');
+    wrap.innerHTML = `
     <div class="table-wrap">
     <table class="data-table">
         <thead><tr>
@@ -184,14 +185,29 @@ function renderUsersTable(users) {
                 <td>${fmtDate(u.createdAt)}</td>
                 <td><span class="badge ${u.active ? 'badge-success' : 'badge-danger'}">${u.active ? 'Ativo' : 'Inativo'}</span></td>
                 <td class="actions-cell">
-                    <button class="btn btn-sm btn-outline" onclick="openEditModal('${u.id}','${esc(u.name)}','${esc(u.email)}')">Editar</button>
-                    <button class="btn btn-sm ${u.active ? 'btn-danger' : 'btn-success'}" onclick="toggleUser('${u.id}', ${!u.active})">
+                    <button class="btn btn-sm btn-outline"
+                        data-edit-user="${u.id}"
+                        data-edit-name="${esc(u.name)}"
+                        data-edit-email="${esc(u.email)}">Editar</button>
+                    <button class="btn btn-sm ${u.active ? 'btn-danger' : 'btn-success'}"
+                        data-toggle-user="${u.id}"
+                        data-toggle-active="${!u.active}">
                         ${u.active ? 'Desativar' : 'Ativar'}
                     </button>
                 </td>
             </tr>`).join('')}
         </tbody>
     </table></div>`;
+
+    wrap.addEventListener('click', async e => {
+        const editBtn = e.target.closest('[data-edit-user]');
+        const toggleBtn = e.target.closest('[data-toggle-user]');
+        if (editBtn) {
+            openEditModal(editBtn.dataset.editUser, editBtn.dataset.editName, editBtn.dataset.editEmail);
+        } else if (toggleBtn) {
+            await toggleUser(toggleBtn.dataset.toggleUser, toggleBtn.dataset.toggleActive === 'true');
+        }
+    });
 }
 
 async function toggleUser(id, active) {
