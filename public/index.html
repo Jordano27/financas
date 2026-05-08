@@ -90,7 +90,10 @@
                     <h2 class="topbar-title" id="topbarTitle">Dashboard</h2>
                 </div>
                 <div class="topbar-right">
-                    <select class="month-select" id="monthSelect"></select>
+                    <div class="period-select">
+                        <select class="month-select" id="yearSelect"></select>
+                        <select class="month-select" id="monthSelect"></select>
+                    </div>
                     <button class="btn btn-outline" id="exportBtn">
                         <svg viewBox="0 0 24 24">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -113,14 +116,17 @@
                             <div class="chart-wrap"><canvas id="chart-history"></canvas></div>
                         </div>
                         <div class="card chart-card">
-                            <div class="card-header"><span class="card-title">Gastos por categoria</span></div>
-                            <div class="chart-wrap chart-wrap--donut"><canvas id="chart-categories"></canvas></div>
+                            <div class="card-header"><span class="card-title">Gastos por categoria (variáveis +
+                                    fixas)</span></div>
+                            <div class="chart-wrap chart-wrap--donut">
+                                <div id="chart-categories-wrap"><canvas id="chart-categories"></canvas></div>
+                            </div>
                         </div>
                     </div>
                     <div class="card">
                         <div class="card-header">
                             <span class="card-title">Lançamentos recentes</span>
-                            <button class="btn-link" data-page="income" id="viewAllBtn">Ver todos</button>
+                            <button class="btn-link" id="viewAllBtn">Ver todos</button>
                         </div>
                         <div id="recent-list"></div>
                     </div>

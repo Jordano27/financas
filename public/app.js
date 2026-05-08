@@ -257,6 +257,10 @@ async function init() {
   bindNav();
   bindSidebar();
   bindExport();
+  document.getElementById('yearSelect').addEventListener('change', () => {
+    if (state._populateMonths) state._populateMonths(document.getElementById('yearSelect').value);
+    onMonthChange();
+  });
   document.getElementById('monthSelect').addEventListener('change', onMonthChange);
   navigate('dashboard');
 }
@@ -281,16 +285,41 @@ async function loadCategories() {
 async function loadMonths() {
   const months = await api('GET', '/api/months');
   state.months = months;
-  const sel = document.getElementById('monthSelect');
-  sel.innerHTML = months.map(m =>
-    `<option value="${m}">${fmtMonth(m).replace(/^\w/, c => c.toUpperCase())}</option>`
+
+  // Build unique sorted year and month lists
+  const years = [...new Set(months.map(m => m.slice(0, 4)))].sort().reverse();
+  const MONTH_NAMES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+  const prevMonth = state.month || months[0] || new Date().toISOString().slice(0, 7);
+  const [prevY, prevM] = prevMonth.split('-');
+
+  const yearSel = document.getElementById('yearSelect');
+  const monthSel = document.getElementById('monthSelect');
+
+  yearSel.innerHTML = years.map(y =>
+    `<option value="${y}"${y === prevY ? ' selected' : ''}>${y}</option>`
   ).join('');
-  state.month = months[0] || new Date().toISOString().slice(0, 7);
-  sel.value = state.month;
+
+  function populateMonths(_selectedYear) {
+    const ALL_MONTHS = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
+    monthSel.innerHTML = ALL_MONTHS.map(mm =>
+      `<option value="${mm}"${mm === prevM ? ' selected' : ''}>${MONTH_NAMES[parseInt(mm, 10) - 1]}</option>`
+    ).join('');
+  }
+
+  populateMonths(yearSel.value);
+
+  // Store helper on state for re-use on year change
+  state._populateMonths = populateMonths;
+
+  state.month = `${yearSel.value}-${monthSel.value}`;
 }
 
 function onMonthChange() {
-  state.month = document.getElementById('monthSelect').value;
+  const y = document.getElementById('yearSelect').value;
+  const m = document.getElementById('monthSelect').value;
+  state.month = `${y}-${m}`;
   renderPage(state.page);
 }
 
@@ -300,7 +329,6 @@ function bindNav() {
     const btn = e.target.closest('[data-page]');
     if (btn) navigate(btn.dataset.page);
   });
-  document.getElementById('viewAllBtn').addEventListener('click', () => navigate('income'));
   document.getElementById('addIncomeBtn').addEventListener('click', () => showTransactionModal('income'));
   document.getElementById('addExpenseBtn').addEventListener('click', () => showTransactionModal('expense'));
   document.getElementById('addBillBtn').addEventListener('click', () => showBillModal());
@@ -399,26 +427,53 @@ function renderStatCards(stats) {
 }
 
 function renderRecentList(stats) {
-  const all = [...stats.incomes, ...stats.expenses]
-    .sort((a, b) => b.date.localeCompare(a.date))
-    .slice(0, 6);
+  const bills = (stats.bills || []).map(b => ({ ...b, type: 'bill' }));
+  const all = [...stats.incomes, ...stats.expenses, ...bills]
+    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 
   const el = document.getElementById('recent-list');
   if (!all.length) {
     el.innerHTML = emptyState('Nenhum lançamento neste mês');
+    document.getElementById('viewAllBtn').classList.add('hidden');
     return;
   }
 
-  el.innerHTML = all.map(t => `
-    <div class="tx-item">
+  function buildItem(t) {
+    const isBill = t.type === 'bill';
+    const amountClass = isBill ? 'expense' : t.type;
+    const sign = t.type === 'income' ? '+' : '-';
+    const meta = isBill
+      ? `<span class="badge badge-cat">Conta fixa</span> · <span class="badge badge-cat">${esc(t.category)}</span>`
+      : `${fmtDate(t.date)} · <span class="badge badge-cat">${esc(t.category)}</span>`;
+    return `<div class="tx-item">
       <div class="tx-dot ${t.type}"></div>
       <div class="tx-info">
         <div class="tx-desc">${esc(t.description)}</div>
-        <div class="tx-meta">${fmtDate(t.date)} · <span class="badge badge-cat">${esc(t.category)}</span></div>
+        <div class="tx-meta">${meta}</div>
       </div>
-      <div class="tx-amount ${t.type}">${t.type === 'income' ? '+' : '-'}${fmt(t.amount)}</div>
-    </div>
-  `).join('');
+      <div class="tx-amount ${amountClass}">${sign}${fmt(t.amount)}</div>
+    </div>`;
+  }
+
+  let expanded = false;
+  const btn = document.getElementById('viewAllBtn');
+  btn.classList.remove('hidden');
+  btn.textContent = all.length > 3 ? 'Ver todos' : '';
+  btn.onclick = null;
+
+  function render(showAll) {
+    el.innerHTML = (showAll ? all : all.slice(0, 3)).map(buildItem).join('');
+  }
+
+  render(false);
+
+  if (all.length > 3) {
+    btn.onclick = () => {
+      expanded = !expanded;
+      render(expanded);
+      btn.textContent = expanded ? 'Ver menos' : 'Ver todos';
+    };
+  }
 }
 
 // ── Charts ────────────────────────────────────────────────────────────────────
@@ -488,7 +543,13 @@ async function renderCharts(currentStats) {
     allCats[k] = (allCats[k] || 0) + v;
   }
 
+  const catWrap = document.getElementById('chart-categories-wrap');
+  // Always restore canvas in case a previous render replaced it with empty-state
+  if (!document.getElementById('chart-categories')) {
+    catWrap.innerHTML = '<canvas id="chart-categories"></canvas>';
+  }
   const catCtx = document.getElementById('chart-categories').getContext('2d');
+
   if (Object.keys(allCats).length) {
     state.charts.categories = new Chart(catCtx, {
       type: 'doughnut',
@@ -506,14 +567,16 @@ async function renderCharts(currentStats) {
         responsive: true, maintainAspectRatio: false,
         cutout: '68%',
         plugins: {
-          legend: { position: 'right', labels: { boxWidth: 10, font: { size: 11 }, padding: 12 } },
+          legend: {
+            position: 'right',
+            labels: { boxWidth: 10, font: { size: 11 }, padding: 10, usePointStyle: true }
+          },
           tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${fmt(ctx.raw)}` } }
         }
       }
     });
   } else {
-    document.getElementById('chart-categories').parentElement.innerHTML =
-      '<div class="empty-state" style="height:100%"><p>Sem gastos para exibir</p></div>';
+    catWrap.innerHTML = '<div class="empty-state" style="height:100%"><p>Sem gastos para exibir</p></div>';
   }
 }
 
@@ -553,7 +616,10 @@ async function loadTransactions(type) {
             <td>${esc(t.description)}</td>
             <td><span class="badge badge-cat">${esc(t.category)}</span></td>
             <td style="text-align:right" class="amount ${type}">${fmt(t.amount)}</td>
-            <td style="text-align:right;width:48px">
+            <td style="text-align:right;width:80px">
+              <button class="icon-btn" data-edit-tx='${JSON.stringify({ id: t.id, type: t.type, description: t.description, amount: t.amount, category: t.category, date: t.date })}' aria-label="Editar">
+                <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </button>
               <button class="icon-btn danger" data-del-tx="${t.id}" aria-label="Excluir">
                 <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
               </button>
@@ -568,15 +634,20 @@ async function loadTransactions(type) {
   fresh.innerHTML = container.innerHTML;
   container.replaceWith(fresh);
   fresh.addEventListener('click', async e => {
-    const btn = e.target.closest('[data-del-tx]');
-    if (!btn) return;
-    if (!confirm('Excluir este lançamento?')) return;
-    try {
-      await api('DELETE', `/api/transactions/${btn.dataset.delTx}`);
-      toast('Lançamento excluído', 'success');
-      loadTransactions(type);
-      if (state.page === 'dashboard') loadDashboard();
-    } catch (err) { toast(err.message, 'error'); }
+    const editBtn = e.target.closest('[data-edit-tx]');
+    const delBtn = e.target.closest('[data-del-tx]');
+    if (editBtn) {
+      const data = JSON.parse(editBtn.dataset.editTx);
+      showEditTransactionModal(data, type);
+    } else if (delBtn) {
+      if (!confirm('Excluir este lançamento?')) return;
+      try {
+        await api('DELETE', `/api/transactions/${delBtn.dataset.delTx}`);
+        toast('Lançamento excluído', 'success');
+        loadTransactions(type);
+        if (state.page === 'dashboard') loadDashboard();
+      } catch (err) { toast(err.message, 'error'); }
+    }
   });
 }
 
@@ -607,6 +678,9 @@ async function loadBills() {
       </div>
       <div class="bill-card__actions">
         <button class="toggle-btn" data-toggle-bill="${b.id}">${b.active ? '✓ Ativa' : 'Inativa'}</button>
+        <button class="icon-btn" data-edit-bill='${JSON.stringify({ id: b.id, description: b.description, amount: b.amount, category: b.category, dueDay: b.dueDay })}' aria-label="Editar">
+          <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
         <button class="icon-btn danger" data-del-bill="${b.id}" aria-label="Excluir">
           <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
         </button>
@@ -619,6 +693,7 @@ async function loadBills() {
   grid.replaceWith(freshGrid);
   freshGrid.addEventListener('click', async e => {
     const toggleBtn = e.target.closest('[data-toggle-bill]');
+    const editBtn = e.target.closest('[data-edit-bill]');
     const delBtn = e.target.closest('[data-del-bill]');
     if (toggleBtn) {
       try {
@@ -626,6 +701,9 @@ async function loadBills() {
         toast('Status atualizado', 'info');
         loadBills();
       } catch (err) { toast(err.message, 'error'); }
+    } else if (editBtn) {
+      const data = JSON.parse(editBtn.dataset.editBill);
+      showEditBillModal(data);
     } else if (delBtn) {
       if (!confirm('Excluir esta conta fixa?')) return;
       try {
@@ -972,6 +1050,113 @@ function showBillModal() {
       });
       closeModal();
       toast('Conta fixa adicionada!', 'success');
+      loadBills();
+    } catch (err) { toast(err.message, 'error'); }
+  });
+}
+
+// ── Edit Transaction modal ────────────────────────────────────────────────────
+function showEditTransactionModal(tx, type) {
+  const cats = state.categories[type] || [];
+  const title = type === 'income' ? 'Editar Ganho' : 'Editar Gasto';
+  const btnClass = type === 'income' ? 'btn-success' : 'btn-danger';
+
+  openModal(`
+    <div class="modal-title">${title}</div>
+    <form id="edit-tx-form">
+      <div class="form-group">
+        <label>Categoria</label>
+        <select class="form-select" name="category" required>
+          ${cats.map(c => `<option value="${esc(c)}"${c === tx.category ? ' selected' : ''}>${esc(c)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Descrição</label>
+        <input class="form-input" name="description" type="text" value="${esc(tx.description)}" required minlength="2" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Valor (R$)</label>
+          <input class="form-input" name="amount" type="number" step="0.01" min="0.01" value="${tx.amount}" required />
+        </div>
+        <div class="form-group">
+          <label>Data</label>
+          <input class="form-input" name="date" type="date" value="${tx.date}" required />
+        </div>
+      </div>
+      <div class="form-footer">
+        <button type="button" class="btn btn-ghost" id="cancelEditTx">Cancelar</button>
+        <button type="submit" class="btn ${btnClass}">Salvar</button>
+      </div>
+    </form>
+  `);
+
+  document.getElementById('cancelEditTx').addEventListener('click', closeModal);
+  document.getElementById('edit-tx-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    try {
+      await api('PUT', `/api/transactions/${tx.id}`, {
+        description: fd.get('description'),
+        amount: fd.get('amount'),
+        category: fd.get('category'),
+        date: fd.get('date')
+      });
+      closeModal();
+      toast('Lançamento atualizado!', 'success');
+      loadTransactions(type);
+      if (state.page === 'dashboard') loadDashboard();
+    } catch (err) { toast(err.message, 'error'); }
+  });
+}
+
+// ── Edit Bill modal ───────────────────────────────────────────────────────────
+function showEditBillModal(bill) {
+  const cats = state.categories.bill || [];
+
+  openModal(`
+    <div class="modal-title">Editar Conta Fixa</div>
+    <form id="edit-bill-form">
+      <div class="form-group">
+        <label>Categoria</label>
+        <select class="form-select" name="category" required>
+          ${cats.map(c => `<option value="${esc(c)}"${c === bill.category ? ' selected' : ''}>${esc(c)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Descrição</label>
+        <input class="form-input" name="description" type="text" value="${esc(bill.description)}" required minlength="2" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Valor (R$)</label>
+          <input class="form-input" name="amount" type="number" step="0.01" min="0.01" value="${bill.amount}" required />
+        </div>
+        <div class="form-group">
+          <label>Dia de vencimento</label>
+          <input class="form-input" name="dueDay" type="number" min="1" max="31" value="${bill.dueDay}" required />
+        </div>
+      </div>
+      <div class="form-footer">
+        <button type="button" class="btn btn-ghost" id="cancelEditBill">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Salvar</button>
+      </div>
+    </form>
+  `);
+
+  document.getElementById('cancelEditBill').addEventListener('click', closeModal);
+  document.getElementById('edit-bill-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    try {
+      await api('PUT', `/api/bills/${bill.id}`, {
+        description: fd.get('description'),
+        amount: fd.get('amount'),
+        category: fd.get('category'),
+        dueDay: fd.get('dueDay')
+      });
+      closeModal();
+      toast('Conta fixa atualizada!', 'success');
       loadBills();
     } catch (err) { toast(err.message, 'error'); }
   });

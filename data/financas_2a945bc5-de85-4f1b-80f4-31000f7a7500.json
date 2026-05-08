@@ -23,7 +23,7 @@
     {
       "id": "d6a451f2-efab-4957-a79f-ab5fe3d831da",
       "description": "Nubank",
-      "amount": 2800,
+      "amount": 2852,
       "category": "Cartão de Crédito",
       "dueDay": 15,
       "active": true,
@@ -31,12 +31,39 @@
     },
     {
       "id": "e454953a-0f57-4b72-a8ff-224e2e276eda",
-      "description": "sicred",
-      "amount": 670,
+      "description": "sicredi",
+      "amount": 673,
       "category": "Cartão de Crédito",
       "dueDay": 10,
       "active": true,
       "createdAt": "2026-05-08T01:51:07.433Z"
+    },
+    {
+      "id": "f895aa05-4d96-4be7-bc2f-68e83694ee67",
+      "description": "Progym",
+      "amount": 120,
+      "category": "Academia",
+      "dueDay": 10,
+      "active": true,
+      "createdAt": "2026-05-08T16:17:36.320Z"
+    },
+    {
+      "id": "ce9e32c5-7cf2-4d78-855d-d882278b27f5",
+      "description": "celular",
+      "amount": 85,
+      "category": "Telefone",
+      "dueDay": 16,
+      "active": true,
+      "createdAt": "2026-05-08T16:18:37.425Z"
+    },
+    {
+      "id": "7f5b33e1-ef93-4c88-9ba4-6d6fb37dc3c2",
+      "description": "Corte Cabelo",
+      "amount": 40,
+      "category": "Outros",
+      "dueDay": 15,
+      "active": true,
+      "createdAt": "2026-05-08T16:19:20.292Z"
     }
   ]
 }

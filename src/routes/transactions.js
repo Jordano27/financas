@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { getCategories } from '../db.js';
 import {
-    addTransaction, getTransactions, deleteTransaction,
-    addBill, getBills, deleteBill, toggleBill,
+    addTransaction, getTransactions, deleteTransaction, updateTransaction,
+    addBill, getBills, deleteBill, toggleBill, updateBill,
     getAllMonths, currentMonth, previousMonth
 } from '../transactions.js';
 import { buildMonthStats, compareMonths, buildAverages, financialHealth } from '../reports.js';
@@ -24,9 +24,19 @@ router.get('/stats/:month', (req, res) => {
 router.get('/months', (req, res) => {
     try {
         const userId = req.user.sub;
-        const months = getAllMonths(userId);
+        const existing = getAllMonths(userId);
         const current = currentMonth();
-        if (!months.includes(current)) months.push(current);
+
+        // Generate a continuous range from the earliest month to today
+        const earliest = existing.length ? existing[0] : current;
+        const months = [];
+        let [y, m] = earliest.split('-').map(Number);
+        const [cy, cm] = current.split('-').map(Number);
+        while (y < cy || (y === cy && m <= cm)) {
+            months.push(`${y}-${String(m).padStart(2, '0')}`);
+            m++;
+            if (m > 12) { m = 1; y++; }
+        }
         res.json(months.sort().reverse());
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -62,6 +72,22 @@ router.delete('/transactions/:id', (req, res) => {
         const userId = req.user.sub;
         const ok = deleteTransaction(userId, req.params.id);
         ok ? res.json({ ok: true }) : res.status(404).json({ error: 'Não encontrado' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT /api/transactions/:id
+router.put('/transactions/:id', (req, res) => {
+    try {
+        const userId = req.user.sub;
+        const { description, amount, category, date } = req.body;
+        if (amount !== undefined) {
+            const val = parseFloat(String(amount).replace(',', '.'));
+            if (isNaN(val) || val <= 0)
+                return res.status(400).json({ error: 'Valor inválido' });
+            req.body.amount = val;
+        }
+        const tx = updateTransaction(userId, req.params.id, { description, amount: req.body.amount, category, date });
+        tx ? res.json(tx) : res.status(404).json({ error: 'Não encontrado' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -103,6 +129,28 @@ router.delete('/bills/:id', (req, res) => {
         const userId = req.user.sub;
         const ok = deleteBill(userId, req.params.id);
         ok ? res.json({ ok: true }) : res.status(404).json({ error: 'Não encontrado' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT /api/bills/:id
+router.put('/bills/:id', (req, res) => {
+    try {
+        const userId = req.user.sub;
+        const { description, amount, category, dueDay } = req.body;
+        if (amount !== undefined) {
+            const val = parseFloat(String(amount).replace(',', '.'));
+            if (isNaN(val) || val <= 0)
+                return res.status(400).json({ error: 'Valor inválido' });
+            req.body.amount = val;
+        }
+        if (dueDay !== undefined) {
+            const day = parseInt(dueDay);
+            if (isNaN(day) || day < 1 || day > 31)
+                return res.status(400).json({ error: 'Dia inválido (1-31)' });
+            req.body.dueDay = day;
+        }
+        const bill = updateBill(userId, req.params.id, { description, amount: req.body.amount, category, dueDay: req.body.dueDay });
+        bill ? res.json(bill) : res.status(404).json({ error: 'Não encontrado' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

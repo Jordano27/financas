@@ -406,6 +406,12 @@ body {
 }
 
 /* ── Month select ────────────────────────────────────────────────────────── */
+.period-select {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
 .month-select {
     background: var(--card);
     border: 1px solid var(--border-2);
@@ -742,6 +748,7 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
+    height: 260px;
 }
 
 /* ── Page header ─────────────────────────────────────────────────────────── */
@@ -1326,6 +1333,10 @@ body {
 
 .tx-dot.expense {
     background: var(--expense);
+}
+
+.tx-dot.bill {
+    background: var(--bills);
 }
 
 .tx-info {

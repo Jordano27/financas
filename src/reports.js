@@ -11,7 +11,11 @@ import {
 export function buildMonthStats(userId, month) {
     const incomes = getTransactions(userId, { month, type: 'income' });
     const expenses = getTransactions(userId, { month, type: 'expense' });
-    const bills = getBills(userId, { activeOnly: true });
+
+    // Contas fixas só entram no cálculo se o mês tiver alguma atividade real,
+    // evitando que meses sem dados mostrem valores de contas fixas no histórico.
+    const hasActivity = incomes.length > 0 || expenses.length > 0;
+    const bills = hasActivity ? getBills(userId, { activeOnly: true }) : [];
 
     const totalIncome = incomes.reduce((s, t) => s + t.amount, 0);
     const totalExpense = expenses.reduce((s, t) => s + t.amount, 0);

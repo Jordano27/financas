@@ -57,6 +57,18 @@ export function deleteTransaction(userId, id) {
     return db.transactions.length < before;
 }
 
+export function updateTransaction(userId, id, { description, amount, category, date }) {
+    const db = loadUserDB(userId);
+    const tx = db.transactions.find(t => t.id === id);
+    if (!tx) return null;
+    if (description !== undefined) tx.description = String(description).trim();
+    if (amount !== undefined) tx.amount = Number(amount);
+    if (category !== undefined) tx.category = category;
+    if (date !== undefined) tx.date = date;
+    saveUserDB(userId, db);
+    return tx;
+}
+
 // ── Bills (contas fixas mensais) ──────────────────────────────────────────────
 
 export function addBill(userId, { description, amount, category, dueDay, active = true }) {
@@ -97,6 +109,18 @@ export function deleteBill(userId, id) {
     db.bills = db.bills.filter(b => b.id !== id);
     saveUserDB(userId, db);
     return db.bills.length < before;
+}
+
+export function updateBill(userId, id, { description, amount, category, dueDay }) {
+    const db = loadUserDB(userId);
+    const bill = db.bills.find(b => b.id === id);
+    if (!bill) return null;
+    if (description !== undefined) bill.description = String(description).trim();
+    if (amount !== undefined) bill.amount = Number(amount);
+    if (category !== undefined) bill.category = category;
+    if (dueDay !== undefined) bill.dueDay = Number(dueDay);
+    saveUserDB(userId, db);
+    return bill;
 }
 
 // ── Month query helpers ───────────────────────────────────────────────────────
