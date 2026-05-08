@@ -1,0 +1,36 @@
+{
+  "transactions": [],
+  "bills": [],
+  "categories": {
+    "income": [
+      "Salário",
+      "Freelance",
+      "Investimentos",
+      "Aluguel Recebido",
+      "Outros"
+    ],
+    "expense": [
+      "Alimentação",
+      "Transporte",
+      "Moradia",
+      "Saúde",
+      "Educação",
+      "Lazer",
+      "Vestuário",
+      "Outros"
+    ],
+    "bill": [
+      "Água",
+      "Luz",
+      "Internet",
+      "Telefone",
+      "Aluguel",
+      "Condomínio",
+      "Streaming",
+      "Cartão de Crédito",
+      "Academia",
+      "Seguro",
+      "Outros"
+    ]
+  }
+}

@@ -1,0 +1,120 @@
+/* ── Admin: métricas grid ─────────────────────────────────────────────────── */
+.admin-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+}
+
+/* ── Tabelas ─────────────────────────────────────────────────────────────────  */
+.table-wrap {
+    overflow-x: auto;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.data-table th {
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--text-2);
+    border-bottom: 1px solid var(--border-2);
+    white-space: nowrap;
+}
+
+.data-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+    color: var(--text);
+}
+
+.data-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.data-table tbody tr:hover td {
+    background: var(--card-hover);
+}
+
+.data-table td.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.data-table td.positive {
+    color: var(--income);
+}
+
+.data-table td.negative {
+    color: var(--expense);
+}
+
+.actions-cell {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+/* ── Badges ──────────────────────────────────────────────────────────────────  */
+.badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 99px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.badge-success {
+    background: var(--income-dim);
+    color: var(--income);
+}
+
+.badge-danger {
+    background: var(--expense-dim);
+    color: var(--expense);
+}
+
+/* ── Botões pequenos ─────────────────────────────────────────────────────────  */
+.btn-sm {
+    padding: 5px 12px;
+    font-size: 12px;
+    border-radius: var(--radius-sm);
+}
+
+.btn-success {
+    background: var(--income-dim);
+    color: var(--income);
+    border: 1px solid var(--income);
+}
+
+.btn-success:hover {
+    background: var(--income);
+    color: #fff;
+}
+
+/* ── Modal title ─────────────────────────────────────────────────────────────  */
+.modal-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    color: var(--text);
+}
+
+/* ── Stat card — bills variant ───────────────────────────────────────────────  */
+.stat-card.bills {
+    border-left: 3px solid var(--bills);
+}
+
+.stat-card.bills .stat-card__icon {
+    background: var(--bills-dim);
+    color: var(--bills);
+}

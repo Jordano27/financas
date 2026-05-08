@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Finanças Pessoais</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+    <div class="app">
+
+        <!-- ── Sidebar ─────────────────────────────────────────────── -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <span class="logo-mark">F</span>
+                    <span class="logo-text">Finanças</span>
+                </div>
+                <button class="icon-btn sidebar-close" id="sidebarClose" aria-label="Fechar">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M18 6 6 18M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <nav class="nav" id="nav">
+                <button class="nav-item" data-page="dashboard">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                        <polyline points="9 22 9 12 15 12 15 22" />
+                    </svg>
+                    Dashboard
+                </button>
+                <button class="nav-item" data-page="income">
+                    <svg viewBox="0 0 24 24">
+                        <line x1="12" y1="19" x2="12" y2="5" />
+                        <polyline points="5 12 12 5 19 12" />
+                    </svg>
+                    Ganhos
+                </button>
+                <button class="nav-item" data-page="expense">
+                    <svg viewBox="0 0 24 24">
+                        <line x1="12" y1="5" x2="12" y2="19" />
+                        <polyline points="19 12 12 19 5 12" />
+                    </svg>
+                    Gastos
+                </button>
+                <button class="nav-item" data-page="bills">
+                    <svg viewBox="0 0 24 24">
+                        <rect x="2" y="5" width="20" height="14" rx="2" />
+                        <line x1="2" y1="10" x2="22" y2="10" />
+                    </svg>
+                    Contas Fixas
+                </button>
+                <button class="nav-item" data-page="reports">
+                    <svg viewBox="0 0 24 24">
+                        <line x1="18" y1="20" x2="18" y2="10" />
+                        <line x1="12" y1="20" x2="12" y2="4" />
+                        <line x1="6" y1="20" x2="6" y2="14" />
+                    </svg>
+                    Relatórios
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="sidebar-version">v2.0.0</div>
+                <button class="btn-link logout-btn" id="logoutBtn">Sair</button>
+            </div>
+        </aside>
+
+        <!-- ── Overlay (mobile) ────────────────────────────────────── -->
+        <div class="overlay" id="overlay"></div>
+
+        <!-- ── Main ───────────────────────────────────────────────── -->
+        <div class="main">
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button class="icon-btn menu-btn" id="menuBtn" aria-label="Menu">
+                        <svg viewBox="0 0 24 24">
+                            <line x1="3" y1="6" x2="21" y2="6" />
+                            <line x1="3" y1="12" x2="21" y2="12" />
+                            <line x1="3" y1="18" x2="21" y2="18" />
+                        </svg>
+                    </button>
+                    <h2 class="topbar-title" id="topbarTitle">Dashboard</h2>
+                </div>
+                <div class="topbar-right">
+                    <select class="month-select" id="monthSelect"></select>
+                    <button class="btn btn-outline" id="exportBtn">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="7 10 12 15 17 10" />
+                            <line x1="12" y1="15" x2="12" y2="3" />
+                        </svg>
+                        Exportar
+                    </button>
+                </div>
+            </header>
+
+            <div class="content" id="content">
+
+                <!-- Dashboard -->
+                <section class="page" id="page-dashboard">
+                    <div class="stat-cards" id="stat-cards"></div>
+                    <div class="charts-row">
+                        <div class="card chart-card">
+                            <div class="card-header"><span class="card-title">Histórico — últimos 6 meses</span></div>
+                            <div class="chart-wrap"><canvas id="chart-history"></canvas></div>
+                        </div>
+                        <div class="card chart-card">
+                            <div class="card-header"><span class="card-title">Gastos por categoria</span></div>
+                            <div class="chart-wrap chart-wrap--donut"><canvas id="chart-categories"></canvas></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">Lançamentos recentes</span>
+                            <button class="btn-link" data-page="income" id="viewAllBtn">Ver todos</button>
+                        </div>
+                        <div id="recent-list"></div>
+                    </div>
+                </section>
+
+                <!-- Income -->
+                <section class="page hidden" id="page-income">
+                    <div class="page-header">
+                        <div class="summary-pill income" id="income-total"></div>
+                        <button class="btn btn-success" id="addIncomeBtn">+ Adicionar Ganho</button>
+                    </div>
+                    <div class="card" id="income-table"></div>
+                </section>
+
+                <!-- Expense -->
+                <section class="page hidden" id="page-expense">
+                    <div class="page-header">
+                        <div class="summary-pill expense" id="expense-total"></div>
+                        <button class="btn btn-danger" id="addExpenseBtn">+ Adicionar Gasto</button>
+                    </div>
+                    <div class="card" id="expense-table"></div>
+                </section>
+
+                <!-- Bills -->
+                <section class="page hidden" id="page-bills">
+                    <div class="page-header">
+                        <div class="summary-pill bills" id="bills-total"></div>
+                        <button class="btn btn-primary" id="addBillBtn">+ Adicionar Conta</button>
+                    </div>
+                    <div class="bills-grid" id="bills-grid"></div>
+                </section>
+
+                <!-- Reports -->
+                <section class="page hidden" id="page-reports">
+                    <div id="reports-content"></div>
+                </section>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Modal ──────────────────────────────────────────────────── -->
+    <div class="modal-backdrop hidden" id="modalBackdrop">
+        <div class="modal" id="modal" role="dialog" aria-modal="true">
+            <button class="modal-close icon-btn" id="modalClose" aria-label="Fechar">
+                <svg viewBox="0 0 24 24">
+                    <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
+            </button>
+            <div id="modal-content"></div>
+        </div>
+    </div>
+
+    <!-- ── Toasts ──────────────────────────────────────────────────── -->
+    <div id="toast-container" aria-live="polite"></div>
+
+    <!-- ── Login overlay ──────────────────────────────────────────── -->
+    <div class="login-overlay hidden" id="loginOverlay">
+        <div class="login-card">
+            <div class="login-logo">
+                <span class="logo-mark">F</span>
+                <span class="logo-text">Finanças</span>
+            </div>
+
+            <!-- Vista: Login -->
+            <div id="loginView">
+                <h1 class="login-title">Entrar</h1>
+                <form class="login-form" id="loginForm" autocomplete="on">
+                    <div class="login-field">
+                        <label for="loginEmail">E-mail</label>
+                        <input id="loginEmail" type="email" name="email" autocomplete="email"
+                            placeholder="seu@email.com" required />
+                    </div>
+                    <div class="login-field">
+                        <label for="loginPass">Senha</label>
+                        <input id="loginPass" type="password" name="password" autocomplete="current-password"
+                            placeholder="••••••••" required />
+                    </div>
+                    <p class="login-error hidden" id="loginError"></p>
+                    <button class="btn btn-primary login-btn" type="submit" id="loginBtn">Entrar</button>
+                    <button class="btn-link login-switch" type="button" id="goToRegister">Cadastrar-se</button>
+                </form>
+            </div>
+
+            <!-- Vista: Cadastro -->
+            <div id="registerView" class="hidden">
+                <h1 class="login-title">Criar conta</h1>
+                <form class="login-form" id="registerForm" autocomplete="on">
+                    <div class="login-field">
+                        <label for="regName">Nome</label>
+                        <input id="regName" type="text" name="name" autocomplete="name" placeholder="Seu nome completo"
+                            required />
+                        <span class="field-hint">Mínimo 2 caracteres</span>
+                    </div>
+                    <div class="login-field">
+                        <label for="regEmail">E-mail</label>
+                        <input id="regEmail" type="email" name="email" autocomplete="email" placeholder="seu@email.com"
+                            required />
+                    </div>
+                    <div class="login-field">
+                        <label for="regPass">Senha</label>
+                        <input id="regPass" type="password" name="password" autocomplete="new-password"
+                            placeholder="••••••••" required />
+                        <span class="field-hint">Mínimo 8 caracteres, letras e números</span>
+                        <div class="password-strength hidden" id="passStrength">
+                            <div class="strength-bar"><span id="strengthFill"></span></div>
+                            <span id="strengthLabel"></span>
+                        </div>
+                    </div>
+                    <div class="login-field">
+                        <label for="regPassConfirm">Confirmar senha</label>
+                        <input id="regPassConfirm" type="password" name="confirmPassword" autocomplete="new-password"
+                            placeholder="••••••••" required />
+                    </div>
+                    <p class="login-error hidden" id="registerError"></p>
+                    <button class="btn btn-primary login-btn" type="submit" id="registerBtn">Salvar</button>
+                    <button class="btn-link login-switch" type="button" id="goToLogin">Voltar para login</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <script type="module" src="app.js"></script>
+</body>
+
+</html>

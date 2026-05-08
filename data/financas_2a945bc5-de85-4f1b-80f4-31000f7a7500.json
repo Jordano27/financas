@@ -1,0 +1,42 @@
+{
+  "transactions": [
+    {
+      "id": "de37b3ab-59c1-46ac-9e71-fe35f82c5003",
+      "type": "income",
+      "description": "salario mensal",
+      "amount": 2760,
+      "category": "Salário",
+      "date": "2026-05-08",
+      "createdAt": "2026-05-08T01:49:19.669Z"
+    },
+    {
+      "id": "a85ef91a-6fb8-4da5-8ad1-0f40fc5762f3",
+      "type": "income",
+      "description": "Confraria do vinho",
+      "amount": 200,
+      "category": "Freelance",
+      "date": "2026-05-08",
+      "createdAt": "2026-05-08T01:49:43.138Z"
+    }
+  ],
+  "bills": [
+    {
+      "id": "d6a451f2-efab-4957-a79f-ab5fe3d831da",
+      "description": "Nubank",
+      "amount": 2800,
+      "category": "Cartão de Crédito",
+      "dueDay": 15,
+      "active": true,
+      "createdAt": "2026-05-08T01:50:43.263Z"
+    },
+    {
+      "id": "e454953a-0f57-4b72-a8ff-224e2e276eda",
+      "description": "sicred",
+      "amount": 670,
+      "category": "Cartão de Crédito",
+      "dueDay": 10,
+      "active": true,
+      "createdAt": "2026-05-08T01:51:07.433Z"
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+[
+  {
+    "id": "671ec06b-17cd-4500-80ac-dfd4625d4c9f",
+    "name": "teste10",
+    "email": "teste10@gmail.com",
+    "passwordHash": "97e9df6b1569f429b3a46cba3dc9641a49fc050a48dcc7fb2e8ed38144787cadc7d6653769dc38abd8aeac668b28969b1f366bf70da3dd00be60c2f6adf6ff02",
+    "salt": "2e87626219d2971f2ca1a26330ff6552",
+    "createdAt": "2026-05-07T21:07:24.171Z",
+    "active": true
+  },
+  {
+    "id": "9ce0c803-1427-465a-b366-cb28e11b39df",
+    "name": "GABI",
+    "email": "gabi@lutz.com",
+    "passwordHash": "f0ab288c5973ec00eadb790fe4c21dd9a88701572470de92305570c16be95d6e60e869c6c6a5c1017fba3b9fb5c2db01d12626a94251860416235733963c94e5",
+    "salt": "0d2a2bc0fb4c5b821e559960a6e24a13",
+    "createdAt": "2026-05-07T21:33:31.344Z"
+  },
+  {
+    "id": "511583ab-f9f6-4e9a-8ffe-cb70de569cad",
+    "name": "Administrador",
+    "email": "admin@financas.com",
+    "passwordHash": "af86d40a7671e587c924a062dd198ccc59cb3aa9bd542324eb3f677e4bb9d41870e2a8b54a22f404f4486a0cf9986dd329762c68ea86b4856c3ac1cc33ddfa16",
+    "salt": "ce64510088c927f5d23762fd15236cd4",
+    "role": "admin",
+    "active": true,
+    "createdAt": "2026-05-07T21:46:52.713Z"
+  },
+  {
+    "id": "2a945bc5-de85-4f1b-80f4-31000f7a7500",
+    "name": "Jordano orlando poletto",
+    "email": "jordanopoletto@gmail.com",
+    "passwordHash": "c983084df1f30fc6df754a08db53dbcf0922f21f8fc743325847bfa41af0a40d7887df15f7864b10413ac4e1a88b97e42497022c590a774bd5f634b6be52c4b6",
+    "salt": "49618c8c7eabf0baeb539469a1ef3b45",
+    "role": "user",
+    "active": true,
+    "createdAt": "2026-05-07T21:52:47.762Z"
+  },
+  {
+    "id": "e7be13e8-6170-4fd4-a382-c28fc76a1da6",
+    "name": "jordanoteste",
+    "email": "jordano@teste.com",
+    "passwordHash": "3e84b30903e813fb29573156176b2514bca740da3b67fb3feb99a2a07b6db6527859c5fc773407d93bf3e80c957f56a8b05738483873f0ab1d14bc2914e3e8f9",
+    "salt": "f8485d4247628b92358bbcb71555a04a",
+    "role": "user",
+    "active": true,
+    "createdAt": "2026-05-08T03:13:16.083Z"
+  }
+]

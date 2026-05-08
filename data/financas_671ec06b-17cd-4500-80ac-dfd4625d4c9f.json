@@ -1,0 +1,60 @@
+{
+  "transactions": [
+    {
+      "id": "7dc81f69-5fc8-47e9-b518-58182962894f",
+      "type": "income",
+      "description": "salario do mes",
+      "amount": 2600,
+      "category": "Salário",
+      "date": "2026-05-08",
+      "createdAt": "2026-05-07T03:20:44.619Z"
+    },
+    {
+      "id": "c113ed06-dc4c-481b-a486-da749da827aa",
+      "type": "income",
+      "description": "extra",
+      "amount": 200,
+      "category": "Freelance",
+      "date": "2026-05-08",
+      "createdAt": "2026-05-07T03:21:47.432Z"
+    }
+  ],
+  "bills": [
+    {
+      "id": "8c2da598-7a1e-45a2-8bca-0474f575aeaa",
+      "description": "Nubank",
+      "amount": 2862,
+      "category": "Cartão de Crédito",
+      "dueDay": 12,
+      "active": true,
+      "createdAt": "2026-05-07T03:35:45.500Z"
+    },
+    {
+      "id": "8eb56283-bc50-4c70-b36e-aa0f361f733a",
+      "description": "sicred",
+      "amount": 678,
+      "category": "Cartão de Crédito",
+      "dueDay": 10,
+      "active": true,
+      "createdAt": "2026-05-07T03:36:10.474Z"
+    },
+    {
+      "id": "790d4f22-f75e-4a75-acc0-aca4cca3e8ac",
+      "description": "celular",
+      "amount": 85,
+      "category": "Telefone",
+      "dueDay": 10,
+      "active": true,
+      "createdAt": "2026-05-07T03:36:45.258Z"
+    },
+    {
+      "id": "f72e7414-ceb0-4787-a59b-6f09c80d8da9",
+      "description": "Progym",
+      "amount": 120,
+      "category": "Academia",
+      "dueDay": 10,
+      "active": true,
+      "createdAt": "2026-05-07T03:37:13.431Z"
+    }
+  ]
+}

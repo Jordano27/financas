@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Painel Admin — Finanças</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="admin.css" />
+</head>
+
+<body>
+    <div class="app">
+
+        <!-- ── Sidebar ── -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <span class="logo-mark" style="background:linear-gradient(135deg,#f87171,#fb923c)">A</span>
+                    <span class="logo-text">Admin</span>
+                </div>
+                <button class="icon-btn sidebar-close" id="sidebarClose" aria-label="Fechar">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M18 6 6 18M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <nav class="nav" id="nav">
+                <button class="nav-item" data-page="dashboard">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                        <polyline points="9 22 9 12 15 12 15 22" />
+                    </svg>
+                    Dashboard
+                </button>
+                <button class="nav-item" data-page="users">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                    Usuários
+                </button>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="sidebar-version" id="adminName">Admin</div>
+                <button class="btn-link logout-btn" id="logoutBtn">Sair</button>
+            </div>
+        </aside>
+
+        <div class="overlay" id="overlay"></div>
+
+        <!-- ── Main ── -->
+        <div class="main">
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button class="icon-btn menu-btn" id="menuBtn" aria-label="Menu">
+                        <svg viewBox="0 0 24 24">
+                            <line x1="3" y1="6" x2="21" y2="6" />
+                            <line x1="3" y1="12" x2="21" y2="12" />
+                            <line x1="3" y1="18" x2="21" y2="18" />
+                        </svg>
+                    </button>
+                    <h2 class="topbar-title" id="topbarTitle">Dashboard</h2>
+                </div>
+            </header>
+
+            <div class="content" id="content">
+
+                <!-- Dashboard -->
+                <section class="page" id="page-dashboard">
+                    <div class="admin-metrics-grid" id="admin-summary-cards"></div>
+                    <div class="card" style="margin-top:24px">
+                        <div class="card-header"><span class="card-title">Resumo por Usuário — Mês atual</span></div>
+                        <div id="admin-users-table"></div>
+                    </div>
+                </section>
+
+                <!-- Usuários -->
+                <section class="page hidden" id="page-users">
+                    <div class="page-header">
+                        <div></div>
+                        <button class="btn btn-primary" id="addUserBtn">+ Novo Usuário</button>
+                    </div>
+                    <div class="card" id="users-card">
+                        <div id="users-table"></div>
+                    </div>
+                </section>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal-backdrop hidden" id="modalBackdrop">
+        <div class="modal" id="modal" role="dialog" aria-modal="true">
+            <button class="modal-close icon-btn" id="modalClose" aria-label="Fechar">
+                <svg viewBox="0 0 24 24">
+                    <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
+            </button>
+            <div id="modal-content"></div>
+        </div>
+    </div>
+
+    <div id="toast-container" aria-live="polite"></div>
+
+    <script type="module" src="admin.js"></script>
+</body>
+
+</html>

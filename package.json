@@ -1,0 +1,22 @@
+{
+    "name": "financas",
+    "version": "1.0.0",
+    "description": "Gerenciador Financeiro",
+    "type": "module",
+    "main": "src/server.js",
+    "scripts": {
+        "start": "node src/server.js",
+        "cli": "node src/index.js"
+    },
+    "dependencies": {
+        "chalk": "^5.3.0",
+        "cli-table3": "^0.6.3",
+        "date-fns": "^3.6.0",
+        "exceljs": "^4.4.0",
+        "express": "^4.19.2",
+        "express-rate-limit": "^8.5.1",
+        "helmet": "^8.1.0",
+        "inquirer": "^9.2.23",
+        "jsonwebtoken": "^9.0.2"
+    }
+}
