@@ -175,12 +175,25 @@ function bindLogin() {
     }
   });
 
-  // Logout
+  // User menu (avatar → dropdown)
+  document.getElementById('userAvatarBtn').addEventListener('click', e => {
+    e.stopPropagation();
+    document.getElementById('userDropdown').classList.toggle('hidden');
+  });
+  document.addEventListener('click', () => {
+    document.getElementById('userDropdown').classList.add('hidden');
+  });
+
   document.getElementById('logoutBtn').addEventListener('click', () => {
     clearToken();
     Object.values(state.charts).forEach(c => c.destroy?.());
     state.charts = {};
     showLoginOverlay();
+  });
+
+  document.getElementById('myAccountBtn').addEventListener('click', () => {
+    document.getElementById('userDropdown').classList.add('hidden');
+    showMyAccountModal();
   });
 }
 
@@ -262,6 +275,7 @@ async function init() {
     onMonthChange();
   });
   document.getElementById('monthSelect').addEventListener('change', onMonthChange);
+  setupUserAvatar();
   navigate('dashboard');
 }
 
@@ -899,12 +913,31 @@ function closeModal() {
 }
 
 function bindSidebar() {
-  document.getElementById('menuBtn').addEventListener('click', () => {
-    document.getElementById('sidebar').classList.add('open');
-    document.getElementById('overlay').classList.add('visible');
+  const app = document.querySelector('.app');
+  const menuBtn = document.getElementById('menuBtn');
+
+  menuBtn.addEventListener('click', () => {
+    if (window.innerWidth <= 768) {
+      const isOpen = document.getElementById('sidebar').classList.contains('open');
+      if (isOpen) {
+        document.getElementById('sidebar').classList.remove('open');
+        document.getElementById('overlay').classList.remove('visible');
+        menuBtn.classList.remove('is-open');
+      } else {
+        document.getElementById('sidebar').classList.add('open');
+        document.getElementById('overlay').classList.add('visible');
+        menuBtn.classList.add('is-open');
+      }
+    } else {
+      const isMini = app.classList.toggle('sidebar-mini');
+      menuBtn.classList.toggle('is-open', isMini);
+    }
   });
-  document.getElementById('sidebarClose').addEventListener('click', closeSidebar);
-  document.getElementById('overlay').addEventListener('click', closeSidebar);
+
+  document.getElementById('overlay').addEventListener('click', () => {
+    closeSidebar();
+    menuBtn.classList.remove('is-open');
+  });
   document.getElementById('modalClose').addEventListener('click', closeModal);
   document.getElementById('modalBackdrop').addEventListener('click', e => {
     if (e.target === e.currentTarget) closeModal();
@@ -1158,6 +1191,76 @@ function showEditBillModal(bill) {
       closeModal();
       toast('Conta fixa atualizada!', 'success');
       loadBills();
+    } catch (err) { toast(err.message, 'error'); }
+  });
+}
+
+// ── User avatar & account ─────────────────────────────────────────────────────
+function setupUserAvatar() {
+  try {
+    const token = getToken();
+    if (!token) return;
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const name = payload.name || '';
+    document.getElementById('userAvatarLetter').textContent = name.charAt(0).toUpperCase() || '?';
+    document.getElementById('userNameLabel').textContent = name;
+  } catch { /* ignore */ }
+}
+
+async function showMyAccountModal() {
+  let user;
+  try { user = await api('GET', '/api/me'); }
+  catch (e) { toast(e.message, 'error'); return; }
+
+  openModal(`
+    <div class="modal-title">Minha Conta</div>
+    <form id="my-account-form">
+      <div class="form-group">
+        <label>Nome</label>
+        <input class="form-input" name="name" type="text" value="${esc(user.name)}" required minlength="2" />
+      </div>
+      <div class="form-group">
+        <label>E-mail</label>
+        <input class="form-input" name="email" type="email" value="${esc(user.email)}" required />
+      </div>
+      <div class="form-group">
+        <label>Nova senha <small style="color:var(--text-3)">(deixe vazio para não alterar)</small></label>
+        <input class="form-input" name="password" type="password" placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" autocomplete="new-password" />
+      </div>
+      <div class="form-footer">
+        <button type="button" class="btn btn-ghost" id="cancelAccountBtn">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Salvar</button>
+      </div>
+    </form>
+  `);
+
+  document.getElementById('cancelAccountBtn').addEventListener('click', closeModal);
+  document.getElementById('my-account-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const newName = fd.get('name');
+    const newEmail = fd.get('email');
+    const newPass = fd.get('password');
+    const body = { name: newName, email: newEmail };
+    if (newPass) body.password = newPass;
+    try {
+      await api('PUT', '/api/me', body);
+      const credentialsChanged = newPass || newEmail !== user.email;
+      if (credentialsChanged) {
+        toast('Dados atualizados! Faça login novamente para continuar.', 'success');
+        closeModal();
+        setTimeout(() => {
+          clearToken();
+          Object.values(state.charts).forEach(c => c.destroy?.());
+          state.charts = {};
+          showLoginOverlay();
+        }, 2000);
+      } else {
+        toast('Dados atualizados com sucesso!', 'success');
+        closeModal();
+        // Update avatar letter if name changed
+        document.getElementById('userAvatarLetter').textContent = newName.charAt(0).toUpperCase() || '?';
+      }
     } catch (err) { toast(err.message, 'error'); }
   });
 }

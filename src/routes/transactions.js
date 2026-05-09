@@ -7,6 +7,7 @@ import {
 } from '../transactions.js';
 import { buildMonthStats, compareMonths, buildAverages, financialHealth } from '../reports.js';
 import { exportSpreadsheet } from '../spreadsheet.js';
+import { findUserById, updateUser } from '../users.js';
 
 const router = Router();
 
@@ -158,6 +159,33 @@ router.put('/bills/:id', (req, res) => {
 router.get('/categories/:type', (req, res) => {
     try { res.json(getCategories(req.params.type)); }
     catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET /api/me
+router.get('/me', (req, res) => {
+    try {
+        const user = findUserById(req.user.sub);
+        if (!user) return res.status(404).json({ error: 'Usuário não encontrado' });
+        res.json({ id: user.id, name: user.name, email: user.email });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT /api/me
+router.put('/me', (req, res) => {
+    try {
+        const { name, email, password } = req.body || {};
+        if (name && name.trim().length < 2)
+            return res.status(400).json({ error: 'Nome deve ter pelo menos 2 caracteres' });
+        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+            return res.status(400).json({ error: 'E-mail inválido' });
+        if (password) {
+            if (password.length < 8) return res.status(400).json({ error: 'Senha deve ter pelo menos 8 caracteres' });
+            if (!/[a-zA-Z]/.test(password)) return res.status(400).json({ error: 'Senha deve conter letras' });
+            if (!/[0-9]/.test(password)) return res.status(400).json({ error: 'Senha deve conter números' });
+        }
+        const updated = updateUser(req.user.sub, { name, email, password });
+        res.json(updated);
+    } catch (e) { res.status(400).json({ error: e.message }); }
 });
 
 // GET /api/comparison/:month

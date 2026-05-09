@@ -35,6 +35,7 @@
     --radius: 14px;
     --radius-sm: 8px;
     --sidebar-w: 220px;
+    --sidebar-mini: 64px;
     --topbar-h: 64px;
     --transition: .18s ease;
 }
@@ -70,7 +71,8 @@ body {
     top: 0;
     left: 0;
     z-index: 200;
-    transition: transform var(--transition);
+    transition: width var(--transition), transform var(--transition);
+    overflow: hidden;
 }
 
 .sidebar-header {
@@ -109,6 +111,55 @@ body {
 
 .sidebar-close {
     display: none;
+}
+
+/* ── Hamburger animated button ────────────────────────────────────── */
+.hamburger {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    width: 18px;
+    height: 14px;
+    position: relative;
+}
+
+.hamburger span {
+    display: block;
+    height: 2px;
+    background: currentColor;
+    border-radius: 2px;
+    transition: transform .3s ease, opacity .3s ease, top .3s ease;
+    position: absolute;
+    left: 0;
+    right: 0;
+}
+
+.hamburger span:nth-child(1) {
+    top: 0;
+}
+
+.hamburger span:nth-child(2) {
+    top: 6px;
+}
+
+.hamburger span:nth-child(3) {
+    top: 12px;
+}
+
+/* X state */
+.menu-btn.is-open .hamburger span:nth-child(1) {
+    transform: rotate(45deg);
+    top: 6px;
+}
+
+.menu-btn.is-open .hamburger span:nth-child(2) {
+    opacity: 0;
+    transform: scaleX(0);
+}
+
+.menu-btn.is-open .hamburger span:nth-child(3) {
+    transform: rotate(-45deg);
+    top: 6px;
 }
 
 /* ── Nav ─────────────────────────────────────────────────────────────────── */
@@ -171,6 +222,96 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
+}
+
+/* ── User menu ───────────────────────────────────────────────────────────── */
+.user-menu {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.user-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary), #a78bfa);
+    border: none;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    font-weight: 700;
+    font-size: 15px;
+    color: #fff;
+    font-family: inherit;
+    transition: opacity var(--transition);
+}
+
+.user-avatar:hover {
+    opacity: .85;
+}
+
+.user-name-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+}
+
+.user-dropdown {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 0;
+    min-width: 180px;
+    background: var(--card);
+    border: 1px solid var(--border-2);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, .35);
+    z-index: 500;
+    overflow: hidden;
+    animation: fadeIn .15s ease;
+}
+
+.user-dropdown__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 11px 16px;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-size: 13.5px;
+    font-family: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background var(--transition);
+    text-align: left;
+}
+
+.user-dropdown__item svg {
+    width: 15px;
+    height: 15px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex-shrink: 0;
+}
+
+.user-dropdown__item:hover {
+    background: rgba(255, 255, 255, .06);
+}
+
+.user-dropdown__item.danger {
+    color: var(--expense);
 }
 
 .sidebar-version {
@@ -366,6 +507,53 @@ body {
     display: flex;
     flex-direction: column;
     min-height: 100vh;
+    transition: margin-left var(--transition);
+}
+
+/* ── Mini sidebar (desktop toggle) ────────────────────────────────── */
+@media (min-width: 769px) {
+    .app.sidebar-mini .sidebar {
+        width: var(--sidebar-mini);
+    }
+
+    .app.sidebar-mini .main {
+        margin-left: var(--sidebar-mini);
+    }
+
+    .app.sidebar-mini .logo-text,
+    .app.sidebar-mini .nav-label,
+    .app.sidebar-mini .sidebar-version,
+    .app.sidebar-mini .logout-btn,
+    .app.sidebar-mini .user-name-label {
+        display: none;
+    }
+
+    .app.sidebar-mini .sidebar-close {
+        display: none;
+    }
+
+    .app.sidebar-mini .sidebar-header {
+        justify-content: center;
+        padding: 20px 0 16px;
+    }
+
+    .app.sidebar-mini .logo {
+        justify-content: center;
+    }
+
+    .app.sidebar-mini .nav-item {
+        justify-content: center;
+        padding: 10px 0;
+    }
+
+    .app.sidebar-mini .sidebar-footer {
+        justify-content: center;
+        padding: 14px 0;
+    }
+
+    .app.sidebar-mini .user-menu {
+        justify-content: center;
+    }
 }
 
 /* ── Topbar ──────────────────────────────────────────────────────────────── */
@@ -376,7 +564,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 24px;
+    padding: 0 24px 0 20px;
     position: sticky;
     top: 0;
     z-index: 100;
@@ -402,7 +590,7 @@ body {
 }
 
 .menu-btn {
-    display: none;
+    display: grid;
 }
 
 /* ── Month select ────────────────────────────────────────────────────────── */
