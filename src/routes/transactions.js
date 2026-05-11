@@ -4,6 +4,7 @@ import {
     addTransaction, getTransactions, deleteTransaction, updateTransaction,
     addBill, getBills, deleteBill, toggleBill, toggleBillPaid, updateBill,
     addInvestment, getInvestments, deleteInvestment, updateInvestment, getTotalInvested,
+    addGoal, getGoals, deleteGoal, updateGoal, addGoalContribution, deleteGoalContribution,
     getAllMonths, currentMonth, previousMonth
 } from '../transactions.js';
 import { buildMonthStats, compareMonths, buildAverages, financialHealth } from '../reports.js';
@@ -279,6 +280,188 @@ router.get('/export/:month', requirePremium, async (req, res) => {
         const userId = req.user.sub;
         const filepath = await exportSpreadsheet(userId, req.params.month);
         res.download(filepath, `financas_${req.params.month}.xlsx`);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Goals ───────────────────────────────────────────────────────────
+
+// GET /api/goals
+router.get('/goals', (req, res) => {
+    try { res.json(getGoals(req.user.sub)); }
+    catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/goals
+router.post('/goals', (req, res) => {
+    try {
+        const { description, targetAmount, targetDate, category } = req.body;
+        if (!description || !targetAmount || !targetDate)
+            return res.status(400).json({ error: 'Campos obrigatórios: description, targetAmount, targetDate' });
+        const val = parseFloat(String(targetAmount).replace(',', '.'));
+        if (isNaN(val) || val <= 0) return res.status(400).json({ error: 'Valor inválido' });
+        res.status(201).json(addGoal(req.user.sub, { description, targetAmount: val, targetDate, category }));
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT /api/goals/:id
+router.put('/goals/:id', (req, res) => {
+    try {
+        const { description, targetAmount, targetDate, category } = req.body;
+        if (targetAmount !== undefined) {
+            const val = parseFloat(String(targetAmount).replace(',', '.'));
+            if (isNaN(val) || val <= 0) return res.status(400).json({ error: 'Valor inválido' });
+            req.body.targetAmount = val;
+        }
+        const goal = updateGoal(req.user.sub, req.params.id, { description, targetAmount: req.body.targetAmount, targetDate, category });
+        goal ? res.json(goal) : res.status(404).json({ error: 'Não encontrado' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// DELETE /api/goals/:id
+router.delete('/goals/:id', (req, res) => {
+    try {
+        const ok = deleteGoal(req.user.sub, req.params.id);
+        ok ? res.json({ ok: true }) : res.status(404).json({ error: 'Não encontrado' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/goals/:id/contributions
+router.post('/goals/:id/contributions', (req, res) => {
+    try {
+        const { amount, date, note } = req.body;
+        if (!amount) return res.status(400).json({ error: 'amount obrigatório' });
+        const val = parseFloat(String(amount).replace(',', '.'));
+        if (isNaN(val) || val <= 0) return res.status(400).json({ error: 'Valor inválido' });
+        const goal = addGoalContribution(req.user.sub, req.params.id, { amount: val, date, note });
+        goal ? res.json(goal) : res.status(404).json({ error: 'Não encontrado' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// DELETE /api/goals/:goalId/contributions/:contributionId
+router.delete('/goals/:goalId/contributions/:contributionId', (req, res) => {
+    try {
+        const goal = deleteGoalContribution(req.user.sub, req.params.goalId, req.params.contributionId);
+        goal ? res.json(goal) : res.status(404).json({ error: 'Não encontrado' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Insights ─────────────────────────────────────────────────────────────────
+
+// GET /api/insights/:month
+router.get('/insights/:month', (req, res) => {
+    try {
+        const userId = req.user.sub;
+        const month = req.params.month;
+
+        // ── Subscription categories (keywords in description/category) ────────
+        const SUBSCRIPTION_GROUPS = {
+            'Streamings': ['netflix', 'hbo', 'disney', 'amazon prime', 'prime video', 'apple tv', 'globoplay', 'paramount', 'crunchyroll', 'youtube premium', 'deezer', 'spotify', 'tidal', 'apple music'],
+            'IAs': ['chatgpt', 'openai', 'copilot', 'claude', 'gemini', 'midjourney', 'notion ai', 'grammarly', 'jasper', 'perplexity'],
+            'Jogos': ['xbox', 'playstation', 'ps plus', 'ps now', 'nintendo', 'game pass', 'ea play', 'steam', 'epic', 'geforce', 'ubisoft'],
+            'Cloud & Software': ['google one', 'icloud', 'dropbox', 'onedrive', 'adobe', 'microsoft 365', 'office', 'aws', 'azure', 'google workspace', 'github', 'figma', 'notion', 'slack', 'zoom', 'trello', 'canva'],
+            'Saúde & Fitness': ['gympass', 'wellhub', 'academia', 'strava', 'nike', 'headspace', 'calm', 'duolingo'],
+            'Notícias & Educação': ['globo', 'folha', 'uol', 'estadão', 'coursera', 'udemy', 'alura', 'rocketseat', 'pluralsight', 'skillshare', 'linkedin learning'],
+            'Outros': []
+        };
+
+        // Collect all bills as recurring items
+        const allBills = getBills(userId, { activeOnly: true });
+
+        // Also collect expense transactions with recurring keywords
+        const expenses = getTransactions(userId, { month, type: 'expense' });
+        const incomes = getTransactions(userId, { month, type: 'income' });
+
+        // Classify subscriptions
+        function classify(text) {
+            const lower = (text || '').toLowerCase();
+            for (const [group, keywords] of Object.entries(SUBSCRIPTION_GROUPS)) {
+                if (group === 'Outros') continue;
+                if (keywords.some(k => lower.includes(k))) return group;
+            }
+            return null; // not a known subscription
+        }
+
+        // Build subscription groups from bills (recurring by nature)
+        const subscriptionGroups = {};
+        for (const bill of allBills) {
+            const group = classify(bill.description) || classify(bill.category);
+            if (group) {
+                if (!subscriptionGroups[group]) subscriptionGroups[group] = [];
+                subscriptionGroups[group].push({ name: bill.description, amount: bill.amount, source: 'conta_fixa' });
+            }
+        }
+
+        // Also detect from expense transactions (description matches)
+        for (const exp of expenses) {
+            const group = classify(exp.description) || classify(exp.category);
+            if (group) {
+                // Avoid duplicate if same description already from bills
+                const already = Object.values(subscriptionGroups).flat().some(
+                    s => s.name.toLowerCase() === exp.description.toLowerCase()
+                );
+                if (!already) {
+                    if (!subscriptionGroups[group]) subscriptionGroups[group] = [];
+                    subscriptionGroups[group].push({ name: exp.description, amount: exp.amount, source: 'gasto' });
+                }
+            }
+        }
+
+        const subscriptionTotal = Object.values(subscriptionGroups).flat().reduce((s, i) => s + i.amount, 0);
+
+        // ── Balance forecast ──────────────────────────────────────────────────
+        const today = new Date();
+        const [year, monthNum] = month.split('-').map(Number);
+        const daysInMonth = new Date(year, monthNum, 0).getDate();
+        const isCurrentMonth = today.getFullYear() === year && today.getMonth() + 1 === monthNum;
+        const dayOfMonth = isCurrentMonth ? today.getDate() : daysInMonth;
+
+        const totalIncome = incomes.reduce((s, t) => s + t.amount, 0);
+        const totalExpense = expenses.reduce((s, t) => s + t.amount, 0);
+        const totalBills = allBills.reduce((s, b) => s + b.amount, 0);
+        const currentBalance = totalIncome - totalExpense - totalBills;
+
+        // Average daily expense rate (from what's spent so far this month)
+        const dailyExpenseRate = dayOfMonth > 0 ? totalExpense / dayOfMonth : 0;
+        const daysRemaining = daysInMonth - dayOfMonth;
+
+        // Projected additional expenses
+        const projectedAdditionalExpense = dailyExpenseRate * daysRemaining;
+        const projectedBalance = currentBalance - projectedAdditionalExpense;
+
+        // Find the day when balance would go negative (if it will)
+        let negativeDayForecast = null;
+        if (currentBalance > 0 && dailyExpenseRate > 0 && projectedBalance < 0) {
+            negativeDayForecast = Math.floor(dayOfMonth + (currentBalance / dailyExpenseRate));
+            if (negativeDayForecast > daysInMonth) negativeDayForecast = null;
+        }
+
+        // Bills unpaid that are still due
+        const unpaidBills = allBills.filter(b => {
+            const paidMonths = b.paidMonths || [];
+            return !paidMonths.includes(month);
+        });
+        const unpaidBillsTotal = unpaidBills.reduce((s, b) => s + b.amount, 0);
+
+        res.json({
+            forecast: {
+                currentBalance,
+                projectedBalance,
+                dailyExpenseRate,
+                daysRemaining,
+                negativeDayForecast,
+                totalIncome,
+                totalExpense,
+                totalBills,
+                unpaidBillsTotal,
+                daysInMonth,
+                dayOfMonth,
+                isCurrentMonth
+            },
+            subscriptions: {
+                groups: subscriptionGroups,
+                total: subscriptionTotal
+            }
+        });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

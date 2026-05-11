@@ -15,7 +15,7 @@
     "passwordHash": "f0ab288c5973ec00eadb790fe4c21dd9a88701572470de92305570c16be95d6e60e869c6c6a5c1017fba3b9fb5c2db01d12626a94251860416235733963c94e5",
     "salt": "0d2a2bc0fb4c5b821e559960a6e24a13",
     "createdAt": "2026-05-07T21:33:31.344Z",
-    "plan": "premium"
+    "plan": "free"
   },
   {
     "id": "511583ab-f9f6-4e9a-8ffe-cb70de569cad",
@@ -46,7 +46,8 @@
     "salt": "f8485d4247628b92358bbcb71555a04a",
     "role": "user",
     "active": true,
-    "createdAt": "2026-05-08T03:13:16.083Z"
+    "createdAt": "2026-05-08T03:13:16.083Z",
+    "plan": "premium"
   },
   {
     "id": "8a1acde5-698b-45a9-b048-99d7e8dbb74c",
@@ -58,5 +59,27 @@
     "plan": "free",
     "active": true,
     "createdAt": "2026-05-11T04:07:19.058Z"
+  },
+  {
+    "id": "d047c764-f4f6-46f0-aa8b-034aadc0a729",
+    "name": "testeteste",
+    "email": "service20@cencicia.com.br",
+    "passwordHash": "9a50ee3729fe4bcbb2d48e8b96ce64a223daa1331d4f6fb284c04f65219f13ed50211c82fb71e898939685dca81eaeba2b72a58fa4a983b5c9afb50ca6b7804e",
+    "salt": "c261387c4cdb72d72f3f08f7bae5acf1",
+    "role": "user",
+    "plan": "free",
+    "active": false,
+    "createdAt": "2026-05-11T12:58:47.891Z"
+  },
+  {
+    "id": "86d28382-3b98-4716-aeda-cb47e8534b38",
+    "name": "testando",
+    "email": "testando@testando.com.br",
+    "passwordHash": "0ef4b4e375ffceb1ce6d51fd466e8e0900d792876034240dfb1a11a80b556978992b8c11420aec120cb69aed893892e71b26a79a28df84a30e06501e0a062c57",
+    "salt": "52db042bf9a93c6e740b65e58334da38",
+    "role": "user",
+    "plan": "free",
+    "active": false,
+    "createdAt": "2026-05-11T13:18:41.573Z"
   }
 ]

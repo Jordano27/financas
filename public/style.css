@@ -2125,3 +2125,454 @@ body {
         display: none;
     }
 }
+
+/* ── Goals (Metas) ─────────────────────────────────────────────────────── */
+.btn-goals {
+    background: #8b5cf6;
+    color: #fff;
+}
+
+.btn-goals:hover {
+    background: #7c3aed;
+}
+
+.summary-pill.goals {
+    background: rgba(139, 92, 246, 0.12);
+    color: #8b5cf6;
+}
+
+.goals-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px;
+}
+
+/* ── Goal card — same structure as .bill-card ─────────────────────────── */
+.goal-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: border-color var(--transition);
+    position: relative;
+    overflow: hidden;
+}
+
+.goal-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #8b5cf6, transparent);
+    opacity: 1;
+}
+
+.goal-card.goal-done::before {
+    background: linear-gradient(90deg, #22c55e, transparent);
+}
+
+.goal-card.goal-overdue-card::before {
+    background: linear-gradient(90deg, var(--expense), transparent);
+}
+
+.goal-card:hover {
+    border-color: var(--border-2);
+}
+
+.goal-card__top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.goal-card__name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.goal-card__cat {
+    font-size: 11.5px;
+    color: var(--text-3);
+    margin-top: 3px;
+}
+
+.goal-card__amount {
+    font-size: 20px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.goal-card__sub {
+    font-size: 11.5px;
+    color: var(--text-3);
+}
+
+.goal-of {
+    opacity: .6;
+}
+
+/* ── Thermometer ──────────────────────────────────────────────────────── */
+.goal-thermometer {
+    width: 100%;
+    height: 6px;
+    background: var(--border);
+    border-radius: 99px;
+    overflow: hidden;
+}
+
+.goal-thermometer__fill {
+    height: 100%;
+    border-radius: 99px;
+    transition: width .4s ease;
+    min-width: 3px;
+}
+
+/* ── Meta info row ────────────────────────────────────────────────────── */
+.goal-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+}
+
+.goal-meta__item {
+    font-size: 11.5px;
+    color: var(--text-3);
+}
+
+.goal-achieved {
+    color: #22c55e;
+    font-weight: 600;
+}
+
+.goal-overdue-label {
+    color: var(--expense);
+    font-weight: 600;
+}
+
+/* ── Actions — same layout as .bill-card__actions ─────────────────────── */
+.goal-card__actions {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+}
+
+.goal-aporte-btn {
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border-2);
+    background: transparent;
+    color: var(--text-2);
+    cursor: pointer;
+    font-family: inherit;
+    transition: all var(--transition);
+    margin-right: auto;
+}
+
+.goal-aporte-btn:hover {
+    border-color: #8b5cf6;
+    color: #8b5cf6;
+}
+
+/* ── Contributions modal table ────────────────────────────────────────── */
+.contributions-table {
+    font-size: .8rem;
+}
+
+.contributions-table td {
+    padding: 5px 8px;
+}
+
+.btn-xs {
+    padding: 2px 6px;
+    font-size: .72rem;
+}
+
+/* ── Contribute modal summary ─────────────────────────────────────────── */
+.contribute-summary {
+    margin-bottom: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+@media (max-width: 600px) {
+    .goals-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* -- Insights ------------------------------------------------------------ */
+.insights-section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px;
+    margin-bottom: 16px;
+}
+
+.insights-section__title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 16px;
+}
+
+.insights-section__title svg {
+    width: 18px;
+    height: 18px;
+    stroke: var(--primary);
+    fill: none;
+    stroke-width: 2;
+    flex-shrink: 0;
+}
+
+.insights-section__badge {
+    margin-left: auto;
+    font-size: 13px;
+    font-weight: 700;
+    background: rgba(139, 92, 246, .12);
+    color: #8b5cf6;
+    padding: 3px 10px;
+    border-radius: 999px;
+}
+
+/* -- Forecast alert banners ---------------------------------------------- */
+.insight-alert {
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    margin-bottom: 16px;
+    border-left: 3px solid;
+}
+
+.insight-alert--danger {
+    background: rgba(239, 68, 68, .1);
+    border-color: #ef4444;
+    color: #ef4444;
+}
+
+.insight-alert--success {
+    background: rgba(34, 197, 94, .1);
+    border-color: #22c55e;
+    color: #22c55e;
+}
+
+.insight-alert--warning {
+    background: rgba(245, 158, 11, .1);
+    border-color: #f59e0b;
+    color: #f59e0b;
+}
+
+.insight-alert--info {
+    background: rgba(59, 130, 246, .1);
+    border-color: #3b82f6;
+    color: #3b82f6;
+}
+
+/* -- Forecast cards row -------------------------------------------------- */
+.insight-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.insight-card {
+    background: var(--surface, var(--bg));
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+}
+
+.insight-card__label {
+    font-size: 11.5px;
+    color: var(--text-3);
+    margin-bottom: 6px;
+}
+
+.insight-card__value {
+    font-size: 22px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+}
+
+.insight-card__value.positive {
+    color: #22c55e;
+}
+
+.insight-card__value.negative {
+    color: #ef4444;
+}
+
+.insight-card__value.text-income {
+    color: var(--income);
+}
+
+.insight-card__value.text-expense {
+    color: var(--expense);
+}
+
+.insight-card__sub {
+    font-size: 11px;
+    color: var(--text-3);
+    margin-top: 4px;
+}
+
+/* -- Commitment progress bar --------------------------------------------- */
+.insight-progress-wrap {
+    margin-top: 4px;
+}
+
+.insight-progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--text-2);
+    margin-bottom: 6px;
+}
+
+.insight-progress-bar {
+    width: 100%;
+    height: 8px;
+    background: var(--border);
+    border-radius: 99px;
+    overflow: hidden;
+    margin-bottom: 6px;
+}
+
+.insight-progress-fill {
+    height: 100%;
+    border-radius: 99px;
+    transition: width .4s ease;
+}
+
+.insight-progress-legend {
+    display: flex;
+    gap: 16px;
+    font-size: 11px;
+    color: var(--text-3);
+}
+
+/* -- Subscription groups ------------------------------------------------- */
+.sub-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.sub-group {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.sub-group__header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, .03);
+    border-bottom: 1px solid var(--border);
+    width: 100%;
+    text-align: left;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    font-family: inherit;
+    cursor: pointer;
+    transition: background var(--transition);
+}
+
+.sub-group__header:hover {
+    background: rgba(255, 255, 255, .06);
+}
+
+.sub-group__icon {
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.sub-group__name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    flex: 1;
+}
+
+.sub-group__count {
+    font-size: 11.5px;
+    font-weight: 600;
+    background: var(--border);
+    color: var(--text-3);
+    padding: 1px 7px;
+    border-radius: 999px;
+    flex-shrink: 0;
+}
+
+.sub-group__total {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--expense);
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+}
+
+.sub-group__chevron {
+    width: 16px;
+    height: 16px;
+    stroke: var(--text-3);
+    fill: none;
+    stroke-width: 2;
+    flex-shrink: 0;
+    transition: transform var(--transition);
+}
+
+.sub-group__header.open .sub-group__chevron {
+    transform: rotate(180deg);
+}
+
+.sub-group__items {
+    padding: 6px 0;
+}
+
+.sub-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border);
+    transition: background var(--transition);
+}
+
+.sub-item:last-child {
+    border-bottom: none;
+}
+
+.sub-item:hover {
+    background: rgba(255, 255, 255, .025);
+}
+
+.sub-item__name {
+    font-size: 13.5px;
+    color: var(--text-2);
+}
+
+.sub-item__amount {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+}

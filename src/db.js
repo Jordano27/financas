@@ -19,7 +19,8 @@ const DEFAULT_CATEGORIES = {
 const DEFAULT_USER_DB = {
     transactions: [],
     bills: [],
-    investments: []
+    investments: [],
+    goals: []
 };
 
 function ensureDataDir() {

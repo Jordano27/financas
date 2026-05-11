@@ -138,10 +138,7 @@ function showPixPaymentModal(userName) {
       <div class="pix-modal__body">
         <p class="pix-modal__greeting">Olá, <strong>${esc(userName)}</strong>! Sua conta foi criada com sucesso.</p>
         <p class="pix-modal__info">Para ativar o plano Premium, realize o pagamento via PIX:</p>
-        <div class="pix-amount">R$ 50,00</div>
-        <div class="pix-qr-wrap">
-          <canvas id="pixQrCanvas"></canvas>
-        </div>
+        <div class="pix-amount">R$ 19,90</div>
         <div class="pix-key-wrap">
           <span class="pix-key-label">Chave PIX (CPF)</span>
           <div class="pix-key-row">
@@ -162,14 +159,6 @@ function showPixPaymentModal(userName) {
     </div>
   `;
   document.body.appendChild(overlay);
-
-  // Generate QR code
-  if (typeof QRCode !== 'undefined') {
-    QRCode.toCanvas(document.getElementById('pixQrCanvas'), pixKey, {
-      width: 180,
-      color: { dark: '#0f172a', light: '#ffffff' }
-    });
-  }
 
   // Copy PIX key
   document.getElementById('pixCopyBtn').addEventListener('click', () => {
@@ -302,6 +291,8 @@ function bindLogin() {
     clearToken();
     Object.values(state.charts).forEach(c => c.destroy?.());
     state.charts = {};
+    state.month = '';
+    state.months = [];
     showLoginOverlay();
   });
 
@@ -471,6 +462,7 @@ function bindNav() {
   document.getElementById('addExpenseBtn').addEventListener('click', () => showTransactionModal('expense'));
   document.getElementById('addBillBtn').addEventListener('click', () => showBillModal());
   document.getElementById('addInvestmentBtn').addEventListener('click', () => showInvestmentModal());
+  document.getElementById('addGoalBtn').addEventListener('click', () => showGoalModal());
 }
 
 const PAGE_TITLES = {
@@ -479,6 +471,8 @@ const PAGE_TITLES = {
   expense: 'Gastos',
   bills: 'Contas Fixas',
   investments: 'Investimentos',
+  goals: 'Metas',
+  insights: 'Inteligência & Insights',
   reports: 'Relatórios'
 };
 
@@ -511,6 +505,8 @@ function renderPage(page) {
     case 'expense': return loadTransactions('expense');
     case 'bills': return loadBills();
     case 'investments': return loadInvestments();
+    case 'goals': return loadGoals();
+    case 'insights': return loadInsights();
     case 'reports': return loadReports();
   }
 }
@@ -1164,15 +1160,555 @@ function showEditInvestmentModal(inv) {
   });
 }
 
+// ── Goals ─────────────────────────────────────────────────────────────────────
+
+function monthsUntil(targetDate) {
+  const now = new Date();
+  const target = new Date(targetDate + 'T00:00:00');
+  const diff = (target.getFullYear() - now.getFullYear()) * 12 + (target.getMonth() - now.getMonth());
+  return Math.max(0, diff);
+}
+
+function goalProgressColor(pct) {
+  if (pct >= 80) return '#22c55e';
+  if (pct >= 40) return '#f59e0b';
+  return '#3b82f6';
+}
+
+function formatGoalDate(isoDate) {
+  if (!isoDate) return '';
+  const [year, month] = isoDate.split('-');
+  const names = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  return `${names[parseInt(month, 10) - 1]} ${year}`;
+}
+
+function renderGoalCard(goal) {
+  const saved = goal.savedAmount || 0;
+  const target = goal.targetAmount || 1;
+  const pct = Math.min(100, (saved / target) * 100);
+  const pctDisplay = pct.toFixed(1);
+  const color = goalProgressColor(pct);
+  const remaining = target - saved;
+  const months = monthsUntil(goal.targetDate);
+  const monthlyNeeded = months > 0 ? remaining / months : (remaining > 0 ? remaining : 0);
+  const isDone = saved >= target;
+  const isOverdueCard = !isDone && months === 0;
+
+  const editSvg = `<svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+  const trashSvg = `<svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
+
+  const monthlyInfo = isDone
+    ? `<span class="goal-meta__item goal-achieved">🎉 Meta atingida!</span>`
+    : months > 0
+      ? `<span class="goal-meta__item">📅 ${fmt(monthlyNeeded)}/mês</span><span class="goal-meta__item">⏳ ${months} ${months === 1 ? 'mês' : 'meses'} restantes</span>`
+      : `<span class="goal-meta__item goal-overdue-label">⚠️ Prazo vencido</span>`;
+
+  return `
+    <div class="goal-card ${isDone ? 'goal-done' : ''} ${isOverdueCard ? 'goal-overdue-card' : ''}" data-goal-id="${goal.id}">
+      <div class="goal-card__top">
+        <div>
+          <div class="goal-card__name">${esc(goal.description)}</div>
+          <div class="goal-card__cat">${esc(goal.category || 'Geral')}</div>
+        </div>
+        <div style="text-align:right">
+          <div class="goal-card__amount" style="color:${color}">${pctDisplay}%</div>
+          <div class="goal-card__sub">${fmt(saved)} <span class="goal-of">de</span> ${fmt(target)}</div>
+        </div>
+      </div>
+      <div class="goal-thermometer">
+        <div class="goal-thermometer__fill" style="width:${pctDisplay}%;background:${color}"></div>
+      </div>
+      <div class="goal-card__meta">
+        <span class="goal-meta__item">🎯 ${formatGoalDate(goal.targetDate)}</span>
+        ${monthlyInfo}
+      </div>
+      <div class="goal-card__actions">
+        ${!isDone ? `<button class="goal-aporte-btn" data-contribute-goal="${goal.id}">Aportar</button>` : ''}
+        ${goal.contributions && goal.contributions.length > 0 ? `<button class="goal-aporte-btn" data-view-contributions="${goal.id}">Aportes (${goal.contributions.length})</button>` : ''}
+        <button class="icon-btn" data-edit-goal="${goal.id}" aria-label="Editar">${editSvg}</button>
+        <button class="icon-btn danger" data-del-goal="${goal.id}" aria-label="Excluir">${trashSvg}</button>
+      </div>
+    </div>`;
+}
+
+function showContributionsModal(goal, goals) {
+  const all = (goal.contributions || []).slice().reverse();
+  const rows = all.map(c => `
+    <tr>
+      <td>${c.date ? c.date.split('-').reverse().join('/') : '—'}</td>
+      <td>${fmt(c.amount)}</td>
+      <td>${esc(c.note || '—')}</td>
+      <td><button class="icon-btn danger btn-xs" data-del-contribution="${c.id}" data-contribution-goal="${goal.id}" title="Remover">✕</button></td>
+    </tr>`).join('');
+  const total = all.reduce((s, c) => s + c.amount, 0);
+  openModal(`
+    <div class="modal-title">Aportes — ${esc(goal.description)}</div>
+    <p style="font-size:12px;color:var(--text-3);margin:0 0 12px">Total aportado: <strong style="color:var(--text)">${fmt(total)}</strong></p>
+    <table class="data-table contributions-table" id="contribsTable">
+      <thead><tr><th>Data</th><th>Valor</th><th>Nota</th><th></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="form-footer" style="margin-top:14px">
+      <button class="btn btn-ghost" id="closeContribsBtn">Fechar</button>
+    </div>
+  `);
+  document.getElementById('closeContribsBtn').addEventListener('click', closeModal);
+  document.getElementById('contribsTable').addEventListener('click', async e => {
+    const btn = e.target.closest('[data-del-contribution]');
+    if (!btn) return;
+    const ok = await confirmDelete('Remover este aporte?');
+    if (!ok) return;
+    await api('DELETE', `/api/goals/${btn.dataset.contributionGoal}/contributions/${btn.dataset.delContribution}`);
+    toast('Aporte removido', 'success');
+    closeModal();
+    loadGoals();
+  });
+}
+
+async function loadGoals() {
+  const grid = document.getElementById('goals-grid');
+  const summary = document.getElementById('goals-summary');
+  grid.innerHTML = loader();
+
+  let goals;
+  try {
+    goals = await api('GET', '/api/goals');
+  } catch (err) {
+    grid.innerHTML = emptyState(`Erro ao carregar metas: ${err.message}`);
+    return;
+  }
+
+  if (!goals || goals.length === 0) {
+    grid.innerHTML = emptyState('Nenhuma meta cadastrada. Crie sua primeira meta!');
+    summary.textContent = '0 Metas';
+    return;
+  }
+
+  const total = goals.length;
+  const done = goals.filter(g => (g.savedAmount || 0) >= g.targetAmount).length;
+  summary.textContent = `${total} Meta${total !== 1 ? 's' : ''} · ${done} concluída${done !== 1 ? 's' : ''}`;
+
+  grid.innerHTML = goals.map(renderGoalCard).join('');
+
+  grid.querySelectorAll('[data-view-contributions]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const goal = goals.find(g => g.id === btn.dataset.viewContributions);
+      if (goal) showContributionsModal(goal, goals);
+    });
+  });
+
+  grid.querySelectorAll('[data-contribute-goal]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const goal = goals.find(g => g.id === btn.dataset.contributeGoal);
+      if (goal) showContributeModal(goal);
+    });
+  });
+
+  grid.querySelectorAll('[data-edit-goal]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const goal = goals.find(g => g.id === btn.dataset.editGoal);
+      if (goal) showGoalModal(goal);
+    });
+  });
+
+  grid.querySelectorAll('[data-del-goal]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const goal = goals.find(g => g.id === btn.dataset.delGoal);
+      if (!goal) return;
+      const ok = await confirmDelete(`Excluir a meta "${goal.description}"?`);
+      if (!ok) return;
+      await api('DELETE', `/api/goals/${goal.id}`);
+      toast('Meta excluída', 'success');
+      loadGoals();
+    });
+  });
+
+}
+
+function showGoalModal(goal = null) {
+  const isEdit = !!goal;
+  const todayMonth = new Date().toISOString().substring(0, 7);
+  openModal(`
+    <div class="modal-title">${isEdit ? 'Editar Meta' : 'Nova Meta'}</div>
+    <form id="goalForm">
+      <div class="form-group">
+        <label>Descrição *</label>
+        <input class="form-input" type="text" id="gDescription" maxlength="80" placeholder="Ex: Viagem ao Japão" value="${isEdit ? esc(goal.description) : ''}" required>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Valor da Meta (R$) *</label>
+          <input class="form-input" type="number" id="gTargetAmount" min="1" step="0.01" placeholder="0,00" value="${isEdit ? goal.targetAmount : ''}" required>
+        </div>
+        <div class="form-group">
+          <label>Data Alvo *</label>
+          <input class="form-input" type="month" id="gTargetDate" min="${todayMonth}" value="${isEdit ? goal.targetDate.substring(0, 7) : ''}" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Categoria</label>
+        <input class="form-input" type="text" id="gCategory" maxlength="40" placeholder="Ex: Viagem, Carro, Emergência" value="${isEdit ? esc(goal.category || '') : ''}">
+      </div>
+      <div class="form-footer">
+        <button type="button" class="btn btn-ghost" id="cancelGoalBtn">Cancelar</button>
+        <button type="submit" class="btn btn-primary">${isEdit ? 'Salvar' : 'Criar Meta'}</button>
+      </div>
+    </form>
+  `);
+
+  document.getElementById('cancelGoalBtn').addEventListener('click', closeModal);
+
+  document.getElementById('goalForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const description = document.getElementById('gDescription').value.trim();
+    const targetAmount = parseFloat(document.getElementById('gTargetAmount').value);
+    const targetDateMonth = document.getElementById('gTargetDate').value;
+    const category = document.getElementById('gCategory').value.trim() || 'Geral';
+
+    if (!description || !targetDateMonth || isNaN(targetAmount) || targetAmount <= 0) {
+      toast('Preencha todos os campos obrigatórios', 'error'); return;
+    }
+
+    const targetDate = targetDateMonth + '-01';
+
+    if (isEdit) {
+      await api('PUT', `/api/goals/${goal.id}`, { description, targetAmount, targetDate, category });
+      toast('Meta atualizada', 'success');
+    } else {
+      await api('POST', '/api/goals', { description, targetAmount, targetDate, category });
+      toast('Meta criada!', 'success');
+    }
+    closeModal();
+    loadGoals();
+  });
+}
+
+function showContributeModal(goal) {
+  const months = monthsUntil(goal.targetDate);
+  const remaining = Math.max(0, goal.targetAmount - (goal.savedAmount || 0));
+  const suggestion = months > 0 ? (remaining / months).toFixed(2) : '';
+  const pct = Math.min(100, ((goal.savedAmount || 0) / goal.targetAmount) * 100);
+
+  openModal(`
+    <div class="modal-title">Aportar para: ${esc(goal.description)}</div>
+    <form id="contributeForm">
+      <div class="contribute-summary">
+        <div class="goal-thermometer">
+          <div class="goal-thermometer__fill" style="width:${pct.toFixed(1)}%;background:${goalProgressColor(pct)}"></div>
+        </div>
+        <small style="color:var(--text-muted)">${fmt(goal.savedAmount || 0)} de ${fmt(goal.targetAmount)} (${pct.toFixed(1)}%)</small>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Valor do Aporte (R$) *</label>
+          <input class="form-input" type="number" id="cAmount" min="0.01" step="0.01" value="${suggestion}" placeholder="0,00" required>
+        </div>
+        <div class="form-group">
+          <label>Data</label>
+          <input class="form-input" type="date" id="cDate" value="${new Date().toISOString().split('T')[0]}">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Nota (opcional)</label>
+        <input class="form-input" type="text" id="cNote" maxlength="80" placeholder="Ex: Salário de maio">
+      </div>
+      <div class="form-footer">
+        <button type="button" class="btn btn-ghost" id="cancelContributeBtn">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Confirmar Aporte</button>
+      </div>
+    </form>
+  `);
+
+  document.getElementById('cancelContributeBtn').addEventListener('click', closeModal);
+
+  document.getElementById('contributeForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const amount = parseFloat(document.getElementById('cAmount').value);
+    const date = document.getElementById('cDate').value;
+    const note = document.getElementById('cNote').value.trim();
+
+    if (isNaN(amount) || amount <= 0) { toast('Valor inválido', 'error'); return; }
+
+    await api('POST', `/api/goals/${goal.id}/contributions`, { amount, date, note });
+    toast('Aporte registrado!', 'success');
+    closeModal();
+    loadGoals();
+  });
+}
+
+// ── Insights ───────────────────────────────────────────────────────────
+async function loadInsights() {
+  const el = document.getElementById('insights-content');
+  el.innerHTML = loader();
+
+  if (!state.month) {
+    el.innerHTML = `<div class="card" style="padding:24px">${emptyState('Selecione um mês para ver os insights.')}</div>`;
+    return;
+  }
+
+  try {
+    const data = await api('GET', `/api/insights/${state.month}`);
+    const { forecast, subscriptions } = data;
+    el.innerHTML = renderForecastSection(forecast) + renderSubscriptionsSection(subscriptions);
+
+    el.querySelectorAll('[data-sub-toggle]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const body = document.getElementById(btn.dataset.subToggle);
+        if (!body) return;
+        const open = !body.hidden;
+        body.hidden = open;
+        btn.classList.toggle('open', !open);
+      });
+    });
+  } catch (err) {
+    el.innerHTML = `<div class="card" style="padding:24px">${emptyState('Erro ao carregar insights: ' + err.message)}</div>`;
+  }
+}
+
+function renderForecastSection(f) {
+  const balanceClass = f.projectedBalance >= 0 ? 'positive' : 'negative';
+  const balanceIcon = f.projectedBalance >= 0 ? '🟢' : '🔴';
+
+  const progressPct = f.totalIncome > 0
+    ? Math.min(100, ((f.totalExpense + f.totalBills) / f.totalIncome) * 100)
+    : 0;
+
+  let alertHtml = '';
+  if (!f.isCurrentMonth) {
+    alertHtml = `<div class="insight-alert insight-alert--info">ℹ️ Visualizando projeção para um mês não corrente.</div>`;
+  } else if (f.currentBalance < 0 || f.projectedBalance < 0) {
+    const dayInfo = f.negativeDayForecast ? ` por volta do dia <strong>${f.negativeDayForecast}</strong>` : '';
+    alertHtml = `<div class="insight-alert insight-alert--danger">🔴 Atenção: seu saldo ${f.currentBalance < 0 ? 'já está negativo' : `ficará negativo${dayInfo}`}. Revise seus gastos.</div>`;
+  } else if (f.negativeDayForecast) {
+    alertHtml = `<div class="insight-alert insight-alert--danger">⚠️ Cuidado: se continuar assim, você ficará negativo por volta do dia <strong>${f.negativeDayForecast}</strong>.</div>`;
+  } else if (progressPct >= 90) {
+    alertHtml = `<div class="insight-alert insight-alert--danger">⚠️ Comprometimento crítico (${progressPct.toFixed(1)}%)! Suas despesas estão consumindo quase toda a receita.</div>`;
+  } else if (progressPct >= 70) {
+    alertHtml = `<div class="insight-alert insight-alert--warning">🟡 Atenção: ${progressPct.toFixed(1)}% da receita já comprometida. Acompanhe seus gastos.</div>`;
+  } else {
+    alertHtml = `<div class="insight-alert insight-alert--success">✅ Projeção positiva! Você deve fechar o mês no azul.</div>`;
+  }
+
+  const progressColor = progressPct >= 90 ? '#ef4444' : progressPct >= 70 ? '#f59e0b' : '#22c55e';
+
+  return `
+    <div class="insights-section">
+      <div class="insights-section__title">
+        <svg viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+        Projeção de Saldo — ${fmtMonth(state.month)}
+      </div>
+      ${alertHtml}
+      <div class="insight-cards">
+        <div class="insight-card">
+          <div class="insight-card__label">Saldo atual</div>
+          <div class="insight-card__value ${f.currentBalance >= 0 ? 'text-income' : 'text-expense'}">${fmt(f.currentBalance)}</div>
+          <div class="insight-card__sub">Receitas menos despesas até hoje (dia ${f.dayOfMonth})</div>
+        </div>
+        <div class="insight-card">
+          <div class="insight-card__label">Saldo projetado no fim do mês</div>
+          <div class="insight-card__value ${balanceClass}">${balanceIcon} ${fmt(f.projectedBalance)}</div>
+          <div class="insight-card__sub">Baseado em ${fmt(f.dailyExpenseRate)}/dia × ${f.daysRemaining} dias restantes</div>
+        </div>
+        <div class="insight-card">
+          <div class="insight-card__label">Contas a pagar (em aberto)</div>
+          <div class="insight-card__value ${f.unpaidBillsTotal > 0 ? 'text-expense' : 'text-income'}">${fmt(f.unpaidBillsTotal)}</div>
+          <div class="insight-card__sub">De ${fmt(f.totalBills)} total de contas fixas</div>
+        </div>
+      </div>
+      <div class="insight-progress-wrap">
+        <div class="insight-progress-label">
+          <span>Comprometimento da receita</span>
+          <span style="color:${progressColor};font-weight:700">${progressPct.toFixed(1)}%</span>
+        </div>
+        <div class="insight-progress-bar">
+          <div class="insight-progress-fill" style="width:${progressPct}%;background:${progressColor}"></div>
+        </div>
+        <div class="insight-progress-legend">
+          <span>🟢 &lt;70% saudável</span>
+          <span>🟡 70-90% atenção</span>
+          <span>🔴 &gt;90% crítico</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderSubscriptionsSection(subs) {
+  const groups = subs.groups || {};
+  const groupNames = Object.keys(groups);
+
+  if (groupNames.length === 0) {
+    return `
+      <div class="insights-section">
+        <div class="insights-section__title">
+          <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          Análise de Assinaturas
+        </div>
+        ${emptyState('Nenhuma assinatura identificada. As assinaturas são detectadas automaticamente a partir das suas contas fixas e gastos.')}
+      </div>`;
+  }
+
+  const ICONS = {
+    'Streamings': '🎥',
+    'IAs': '🤖',
+    'Jogos': '🎮',
+    'Cloud & Software': '☁️',
+    'Saúde & Fitness': '🏋️',
+    'Notícias & Educação': '📚',
+    'Outros': '📦'
+  };
+
+  const groupsHtml = groupNames.map((name, idx) => {
+    const items = groups[name];
+    const groupTotal = items.reduce((s, i) => s + i.amount, 0);
+    const bodyId = `sub-group-body-${idx}`;
+    const rows = items.map(item => `
+      <div class="sub-item">
+        <span class="sub-item__name">${esc(item.name)}</span>
+        <span class="sub-item__amount">${fmt(item.amount)}/mês</span>
+      </div>`).join('');
+    return `
+      <div class="sub-group">
+        <button class="sub-group__header" data-sub-toggle="${bodyId}" type="button">
+          <span class="sub-group__icon">${ICONS[name] || '📦'}</span>
+          <span class="sub-group__name">${esc(name)}</span>
+          <span class="sub-group__count">${items.length}</span>
+          <span class="sub-group__total">${fmt(groupTotal)}/mês</span>
+          <svg class="sub-group__chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="sub-group__items" id="${bodyId}" hidden>${rows}</div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="insights-section">
+      <div class="insights-section__title">
+        <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        Análise de Assinaturas
+        <span class="insights-section__badge">${fmt(subs.total)}/mês</span>
+      </div>
+      <div class="sub-groups">${groupsHtml}</div>
+    </div>`;
+}
+
 // ── Reports ───────────────────────────────────────────────────────────────────
+function renderReportGoals(goals) {
+  if (!goals || goals.length === 0) return '';
+  const total = goals.length;
+  const done = goals.filter(g => (g.savedAmount || 0) >= g.targetAmount).length;
+  const inProgress = total - done;
+  const totalTarget = goals.reduce((s, g) => s + g.targetAmount, 0);
+  const totalSaved = goals.reduce((s, g) => s + (g.savedAmount || 0), 0);
+  const overallPct = totalTarget > 0 ? Math.min(100, (totalSaved / totalTarget) * 100) : 0;
+  const color = overallPct >= 80 ? '#22c55e' : overallPct >= 40 ? '#f59e0b' : '#3b82f6';
+
+  const rows = goals.map(g => {
+    const saved = g.savedAmount || 0;
+    const pct = Math.min(100, (saved / g.targetAmount) * 100);
+    const months = monthsUntil(g.targetDate);
+    const remaining = g.targetAmount - saved;
+    const monthly = months > 0 ? remaining / months : 0;
+    const isDone = saved >= g.targetAmount;
+    return `
+      <tr>
+        <td>${esc(g.description)}</td>
+        <td style="color:var(--text-3);font-size:12px">${esc(g.category || 'Geral')}</td>
+        <td>${fmt(saved)} <span style="color:var(--text-3);font-size:11px">de ${fmt(g.targetAmount)}</span></td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="flex:1;height:6px;background:var(--border);border-radius:99px;overflow:hidden">
+              <div style="height:100%;width:${pct.toFixed(1)}%;background:${goalProgressColor(pct)};border-radius:99px"></div>
+            </div>
+            <span style="font-size:11.5px;font-weight:700;color:${goalProgressColor(pct)};width:36px;text-align:right">${pct.toFixed(0)}%</span>
+          </div>
+        </td>
+        <td style="font-size:12px;color:var(--text-3)">${formatGoalDate(g.targetDate)}</td>
+        <td style="font-size:12px">${isDone ? '<span style="color:#22c55e;font-weight:600">✓ Atingida</span>' : months > 0 ? fmt(monthly) + '/mês' : '<span style="color:var(--expense)">Vencida</span>'}</td>
+      </tr>`;
+  }).join('');
+
+  return `
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header">
+        <span class="card-title">Metas</span>
+        <span style="font-size:12px;color:var(--text-3)">${done} concluída${done !== 1 ? 's' : ''} · ${inProgress} em andamento</span>
+      </div>
+      <table class="cmp-table" style="margin-bottom:12px">
+        <tbody>
+          ${cmpRow('Total de metas', String(total))}
+          ${cmpRow('Total acumulado', fmt(totalSaved))}
+          ${cmpRow('Total a atingir', fmt(totalTarget))}
+          ${cmpRow('Progresso geral', `<span style="color:${color};font-weight:700">${overallPct.toFixed(1)}%</span>`)}
+        </tbody>
+      </table>
+      <div style="overflow-x:auto">
+        <table class="data-table" style="font-size:13px">
+          <thead>
+            <tr>
+              <th>Meta</th><th>Categoria</th><th>Poupado</th><th style="min-width:140px">Progresso</th><th>Prazo</th><th>Poupar/mês</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function renderReportSubscriptions(subs) {
+  if (!subs || !subs.groups || Object.keys(subs.groups).length === 0) return '';
+  const groups = subs.groups;
+  const groupNames = Object.keys(groups);
+  const ICONS = {
+    'Streamings': '🎥', 'IAs': '🤖', 'Jogos': '🎮',
+    'Cloud & Software': '☁️', 'Saúde & Fitness': '🏋️',
+    'Notícias & Educação': '📚', 'Outros': '📦'
+  };
+
+  const rows = groupNames.map(name => {
+    const items = groups[name];
+    const groupTotal = items.reduce((s, i) => s + i.amount, 0);
+    const subRows = items.map(item => `
+      <tr style="opacity:.8">
+        <td style="padding-left:28px;font-size:12px;color:var(--text-2)">${ICONS[name] || '📦'} ${esc(item.name)}</td>
+        <td style="font-size:12px;color:var(--text-3)">${esc(name)}</td>
+        <td style="font-size:12px">${fmt(item.amount)}/mês</td>
+        <td style="font-size:12px">${fmt(item.amount * 12)}/ano</td>
+      </tr>`).join('');
+    return `
+      <tr style="font-weight:600">
+        <td>${esc(name)}</td>
+        <td style="color:var(--text-3);font-size:12px">${items.length} assinatura${items.length !== 1 ? 's' : ''}</td>
+        <td>${fmt(groupTotal)}/mês</td>
+        <td style="color:var(--text-3)">${fmt(groupTotal * 12)}/ano</td>
+      </tr>${subRows}`;
+  }).join('');
+
+  return `
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header">
+        <span class="card-title">Assinaturas Recorrentes</span>
+        <span style="font-size:12px;font-weight:700;color:var(--expense)">${fmt(subs.total)}/mês · ${fmt(subs.total * 12)}/ano</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="data-table" style="font-size:13px">
+          <thead>
+            <tr><th>Categoria / Serviço</th><th>Qtd</th><th>Mensal</th><th>Anual</th></tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
 async function loadReports() {
   const el = document.getElementById('reports-content');
   el.innerHTML = loader();
 
-  const [stats, cmp, avgs] = await Promise.all([
+  const [stats, cmp, avgs, goals, insights] = await Promise.all([
     api('GET', `/api/stats/${state.month}`),
     api('GET', `/api/comparison/${state.month}`),
-    api('GET', '/api/averages')
+    api('GET', '/api/averages'),
+    api('GET', '/api/goals').catch(() => []),
+    api('GET', `/api/insights/${state.month}`).catch(() => null)
   ]);
 
   const activeBills = (stats.bills || []).filter(b => b.active);
@@ -1245,6 +1781,9 @@ async function loadReports() {
         </tbody>
       </table>
     </div>
+
+    ${renderReportGoals(goals)}
+    ${insights ? renderReportSubscriptions(insights.subscriptions) : ''}
 
     <div class="card" style="margin-bottom:20px">
       <div class="card-header">

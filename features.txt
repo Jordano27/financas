@@ -1,0 +1,15 @@
+passar para o Kambam:
+
+Módulo de Metas     
+O usuário define um objetivo (ex: "Viagem Japão" - R$ 15.000).
+
+O sistema calcula quanto ele precisa poupar por mês com base na data alvo.
+
+Barra de progresso visual (estilo "termômetro").
+
+🤖 Inteligência e Insights 
+Previsão de Saldo: Com base nas contas fixas e média de gastos, o sistema projeta o saldo do usuário para o final do mês. "Cuidado: se continuar assim, você ficará negativo no dia 25".
+
+Análise de Assinaturas: Um lugar que agrupa tudo o que é recorrente (Netflix, Spotify, Cloud). Muitas vezes o usuário esquece o que assinou.
+
+Saude finaceira(Nova Metrica): Use a regra 50-30-20 (50% Necessidades, 30% Desejos, 20% Investimento/Dívida) como base para dar essa nota. Se o usuário estiver próximo disso, o score é 100.
