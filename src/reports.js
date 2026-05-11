@@ -1,6 +1,7 @@
 import {
     getTransactions,
     getBills,
+    getInvestments,
     formatCurrency,
     formatMonthLabel,
     previousMonth
@@ -11,6 +12,7 @@ import {
 export function buildMonthStats(userId, month) {
     const incomes = getTransactions(userId, { month, type: 'income' });
     const expenses = getTransactions(userId, { month, type: 'expense' });
+    const investments = getInvestments(userId, { month });
 
     // Contas fixas só entram no cálculo se o mês tiver alguma atividade real,
     // evitando que meses sem dados mostrem valores de contas fixas no histórico.
@@ -20,14 +22,17 @@ export function buildMonthStats(userId, month) {
     const totalIncome = incomes.reduce((s, t) => s + t.amount, 0);
     const totalExpense = expenses.reduce((s, t) => s + t.amount, 0);
     const totalBills = bills.reduce((s, b) => s + b.amount, 0);
+    const totalInvested = investments.reduce((s, i) => s + i.amount, 0);
     const totalOutflow = totalExpense + totalBills;
-    const balance = totalIncome - totalOutflow;
+    // Investimentos saem do saldo disponível (dinheiro alocado fora do consumo)
+    const balance = totalIncome - totalOutflow - totalInvested;
     const savingsRate = totalIncome > 0 ? ((balance / totalIncome) * 100) : 0;
 
     // By category
     const expenseByCategory = groupByCategory(expenses);
     const incomeByCategory = groupByCategory(incomes);
     const billByCategory = groupByCategory(bills);
+    const investByCategory = groupByCategory(investments);
 
     return {
         month,
@@ -35,14 +40,17 @@ export function buildMonthStats(userId, month) {
         totalExpense,
         totalBills,
         totalOutflow,
+        totalInvested,
         balance,
         savingsRate,
         incomes,
         expenses,
         bills,
+        investments,
         expenseByCategory,
         incomeByCategory,
-        billByCategory
+        billByCategory,
+        investByCategory
     };
 }
 

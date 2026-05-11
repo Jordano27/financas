@@ -63,6 +63,63 @@
     align-items: center;
 }
 
+/* ── Plan toggle switch ───────────────────────────────────────────────────── */
+.plan-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.plan-toggle__input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.plan-toggle__track {
+    position: relative;
+    width: 38px;
+    height: 22px;
+    background: var(--border-2, #334155);
+    border-radius: 99px;
+    transition: background .2s;
+    flex-shrink: 0;
+}
+
+.plan-toggle__track::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 16px;
+    height: 16px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform .2s;
+}
+
+.plan-toggle__input:checked+.plan-toggle__track {
+    background: #f59e0b;
+}
+
+.plan-toggle__input:checked+.plan-toggle__track::after {
+    transform: translateX(16px);
+}
+
+.plan-toggle__label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-2);
+    min-width: 68px;
+}
+
+.plan-toggle__input:checked~.plan-toggle__label {
+    color: #f59e0b;
+}
+
 /* ── Badges ──────────────────────────────────────────────────────────────────  */
 .badge {
     display: inline-block;
@@ -81,6 +138,54 @@
 .badge-danger {
     background: var(--expense-dim);
     color: var(--expense);
+}
+
+.badge-premium {
+    background: rgba(245, 158, 11, .15);
+    color: #f59e0b;
+}
+
+.badge-free {
+    background: rgba(148, 163, 184, .12);
+    color: var(--text-3);
+}
+
+/* ── Plan distribution bar ───────────────────────────────────────────────── */
+.plan-bar-wrap {
+    grid-column: 1 / -1;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.plan-bar-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-2);
+}
+
+.plan-bar {
+    display: flex;
+    height: 14px;
+    border-radius: 99px;
+    overflow: hidden;
+    background: var(--border-2);
+}
+
+.plan-bar__premium {
+    background: #f59e0b;
+    transition: width .5s ease;
+}
+
+.plan-bar__free {
+    background: rgba(148, 163, 184, .3);
+    transition: width .5s ease;
 }
 
 /* ── Botões pequenos ─────────────────────────────────────────────────────────  */

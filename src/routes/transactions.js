@@ -2,17 +2,19 @@ import { Router } from 'express';
 import { getCategories } from '../db.js';
 import {
     addTransaction, getTransactions, deleteTransaction, updateTransaction,
-    addBill, getBills, deleteBill, toggleBill, updateBill,
+    addBill, getBills, deleteBill, toggleBill, toggleBillPaid, updateBill,
+    addInvestment, getInvestments, deleteInvestment, updateInvestment, getTotalInvested,
     getAllMonths, currentMonth, previousMonth
 } from '../transactions.js';
 import { buildMonthStats, compareMonths, buildAverages, financialHealth } from '../reports.js';
 import { exportSpreadsheet } from '../spreadsheet.js';
 import { findUserById, updateUser } from '../users.js';
+import { requirePremium } from '../middleware/auth.js';
 
 const router = Router();
 
 // GET /api/stats/:month
-router.get('/stats/:month', (req, res) => {
+router.get('/stats/:month', requirePremium, (req, res) => {
     try {
         const userId = req.user.sub;
         const stats = buildMonthStats(userId, req.params.month);
@@ -124,6 +126,18 @@ router.patch('/bills/:id/toggle', (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// PATCH /api/bills/:id/paid
+router.patch('/bills/:id/paid', (req, res) => {
+    try {
+        const userId = req.user.sub;
+        const { month } = req.body;
+        if (!month || !/^\d{4}-\d{2}$/.test(month))
+            return res.status(400).json({ error: 'month obrigatório (YYYY-MM)' });
+        const bill = toggleBillPaid(userId, req.params.id, month);
+        bill ? res.json(bill) : res.status(404).json({ error: 'Não encontrado' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // DELETE /api/bills/:id
 router.delete('/bills/:id', (req, res) => {
     try {
@@ -161,6 +175,60 @@ router.get('/categories/:type', (req, res) => {
     catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── Investments ───────────────────────────────────────────────────────────────
+
+// GET /api/investments
+router.get('/investments', (req, res) => {
+    try {
+        const userId = req.user.sub;
+        const { month } = req.query;
+        res.json(getInvestments(userId, { month }));
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET /api/investments/total
+router.get('/investments/total', (req, res) => {
+    try {
+        res.json({ total: getTotalInvested(req.user.sub) });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/investments
+router.post('/investments', (req, res) => {
+    try {
+        const userId = req.user.sub;
+        const { description, amount, category, date } = req.body;
+        if (!description || !amount || !category)
+            return res.status(400).json({ error: 'Campos obrigatórios: description, amount, category' });
+        const val = parseFloat(String(amount).replace(',', '.'));
+        if (isNaN(val) || val <= 0) return res.status(400).json({ error: 'Valor inválido' });
+        res.status(201).json(addInvestment(userId, { description: String(description).trim(), amount: val, category, date }));
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT /api/investments/:id
+router.put('/investments/:id', (req, res) => {
+    try {
+        const userId = req.user.sub;
+        const { description, amount, category, date } = req.body;
+        if (amount !== undefined) {
+            const val = parseFloat(String(amount).replace(',', '.'));
+            if (isNaN(val) || val <= 0) return res.status(400).json({ error: 'Valor inválido' });
+            req.body.amount = val;
+        }
+        const inv = updateInvestment(userId, req.params.id, { description, amount: req.body.amount, category, date });
+        inv ? res.json(inv) : res.status(404).json({ error: 'Não encontrado' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// DELETE /api/investments/:id
+router.delete('/investments/:id', (req, res) => {
+    try {
+        const ok = deleteInvestment(req.user.sub, req.params.id);
+        ok ? res.json({ ok: true }) : res.status(404).json({ error: 'Não encontrado' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // GET /api/me
 router.get('/me', (req, res) => {
     try {
@@ -189,7 +257,7 @@ router.put('/me', (req, res) => {
 });
 
 // GET /api/comparison/:month
-router.get('/comparison/:month', (req, res) => {
+router.get('/comparison/:month', requirePremium, (req, res) => {
     try {
         const userId = req.user.sub;
         const prev = previousMonth(req.params.month);
@@ -198,7 +266,7 @@ router.get('/comparison/:month', (req, res) => {
 });
 
 // GET /api/averages
-router.get('/averages', (req, res) => {
+router.get('/averages', requirePremium, (req, res) => {
     try {
         const userId = req.user.sub;
         res.json(buildAverages(userId, getAllMonths(userId)) || {});
@@ -206,7 +274,7 @@ router.get('/averages', (req, res) => {
 });
 
 // GET /api/export/:month
-router.get('/export/:month', async (req, res) => {
+router.get('/export/:month', requirePremium, async (req, res) => {
     try {
         const userId = req.user.sub;
         const filepath = await exportSpreadsheet(userId, req.params.month);

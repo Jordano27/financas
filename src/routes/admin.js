@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAdmin } from '../middleware/auth.js';
-import { listUsers, registerUser, updateUser, setUserActive, validateUserInput } from '../users.js';
+import { listUsers, registerUser, updateUser, setUserActive, setUserPlan, validateUserInput } from '../users.js';
 import { getAllMonths, currentMonth } from '../transactions.js';
 import { buildMonthStats, buildAverages } from '../reports.js';
 
@@ -55,6 +55,16 @@ router.patch('/users/:id/toggle', (req, res) => {
     } catch (e) { res.status(400).json({ error: e.message }); }
 });
 
+// PATCH /api/admin/users/:id/plan
+router.patch('/users/:id/plan', (req, res) => {
+    const { plan } = req.body || {};
+    if (!['free', 'premium'].includes(plan))
+        return res.status(400).json({ error: 'Plano inválido. Use "free" ou "premium"' });
+    try {
+        res.json(setUserPlan(req.params.id, plan));
+    } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
 // GET /api/admin/metrics
 router.get('/metrics', (req, res) => {
     try {
@@ -69,6 +79,7 @@ router.get('/metrics', (req, res) => {
                 name: u.name,
                 email: u.email,
                 active: u.active,
+                plan: u.plan || 'free',
                 totalMonths: months.length,
                 currentMonth: {
                     income: stats.totalIncome,

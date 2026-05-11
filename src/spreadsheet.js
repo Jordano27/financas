@@ -65,6 +65,7 @@ export async function exportSpreadsheet(userId, targetMonth) {
     buildTransactionsSheet(wb, stats, 'income', '💰 Ganhos', COLORS.incomeBg);
     buildTransactionsSheet(wb, stats, 'expense', '💸 Gastos', COLORS.expenseBg);
     buildBillsSheet(wb, stats);
+    buildComplianceSheet(wb, stats, month);
     buildCategorySheet(wb, stats);
     buildComparisonSheet(wb, cmp);
     if (avgs) buildAveragesSheet(wb, avgs);
@@ -262,6 +263,139 @@ function buildCategorySheet(wb, stats) {
 
         row++; // blank separator
     });
+}
+
+// ── Sheet: Compliance (Adimplência / Inadimplência) ──────────────────────────
+function buildComplianceSheet(wb, stats, month) {
+    const ws = wb.addWorksheet('✅❌ Adim. & Inadim.', { tabColor: { argb: '70AD47' } });
+    ws.columns = [{ width: 35 }, { width: 22 }, { width: 20 }, { width: 18 }, { width: 14 }];
+
+    // Title
+    ws.mergeCells('A1:E1');
+    headerCell(ws.getCell('A1'), `ADIMPLÊNCIA & INADIMPLÊNCIA — ${formatMonthLabel(month).toUpperCase()}`);
+    ws.getRow(1).height = 30;
+
+    ws.addRow([]);
+
+    // Compute metrics
+    const today = new Date();
+    const currentYM = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+    const activeBills = (stats.bills || []).filter(b => b.active);
+    const paidBills = activeBills.filter(b => (b.paidMonths || []).includes(month));
+    const overdueBills = activeBills.filter(b => {
+        const isPaid = (b.paidMonths || []).includes(month);
+        if (isPaid) return false;
+        if (month < currentYM) return true;
+        if (month > currentYM) return false;
+        return today.getDate() > b.dueDay;
+    });
+    const totalCount = activeBills.length;
+    const paidCount = paidBills.length;
+    const paidValue = paidBills.reduce((s, b) => s + b.amount, 0);
+    const paidPct = totalCount > 0 ? (paidCount / totalCount) * 100 : 0;
+    const unpaidCount = overdueBills.length;
+    const unpaidValue = overdueBills.reduce((s, b) => s + b.amount, 0);
+    const unpaidPct = totalCount > 0 ? (unpaidCount / totalCount) * 100 : 0;
+
+    // Summary block
+    const summaryRows = [
+        ['Total de contas fixas ativas', totalCount, null, COLORS.sectionBg],
+        ['✓ Contas pagas', paidCount, null, COLORS.incomeBg],
+        ['✓ Valor pago', paidValue, BRL_FMT, COLORS.incomeBg],
+        ['✓ Adimplência (%)', paidPct, PCT_FMT, COLORS.incomeBg],
+        ['⚠ Contas vencidas', unpaidCount, null, unpaidCount === 0 ? COLORS.incomeBg : COLORS.expenseBg],
+        ['⚠ Valor vencido', unpaidValue, BRL_FMT, unpaidCount === 0 ? COLORS.incomeBg : COLORS.expenseBg],
+        ['⚠ Inadimplência (%)', unpaidPct, PCT_FMT, unpaidCount === 0 ? COLORS.incomeBg : COLORS.expenseBg]
+    ];
+
+    const shRow = ws.addRow(['Métrica', 'Valor']);
+    headerCell(shRow.getCell(1), 'Métrica', COLORS.sectionBg, '000000');
+    headerCell(shRow.getCell(2), 'Valor', COLORS.sectionBg, '000000');
+    shRow.height = 22;
+
+    summaryRows.forEach(([label, value, fmt, bg]) => {
+        const r = ws.addRow([label, value]);
+        r.height = 22;
+        dataCell(r.getCell(1), label, null, bg);
+        dataCell(r.getCell(2), value, fmt, bg);
+        r.getCell(1).font = { bold: true };
+    });
+
+    ws.addRow([]);
+
+    // Paid bills detail
+    if (paidBills.length > 0) {
+        const ph = ws.addRow(['CONTAS PAGAS NO MÊS', '', '', '', '']);
+        ws.mergeCells(`A${ph.number}:E${ph.number}`);
+        headerCell(ws.getCell(`A${ph.number}`), 'CONTAS PAGAS NO MÊS', '70AD47', 'FFFFFF');
+        ph.height = 22;
+
+        const pdh = ws.addRow(['Descrição', 'Categoria', 'Vencimento (Dia)', 'Valor (R$)', '']);
+        ['A', 'B', 'C', 'D'].forEach((c, i) => headerCell(ws.getCell(`${c}${pdh.number}`), pdh.getCell(i + 1).value, COLORS.sectionBg, '000000'));
+        pdh.height = 20;
+
+        paidBills.forEach((b, idx) => {
+            const bg = idx % 2 === 0 ? COLORS.incomeBg : COLORS.altRow;
+            const r = ws.addRow([b.description, b.category, `Dia ${b.dueDay}`, b.amount, '']);
+            r.height = 20;
+            dataCell(r.getCell(1), b.description, null, bg);
+            dataCell(r.getCell(2), b.category, null, bg);
+            dataCell(r.getCell(3), `Dia ${b.dueDay}`, null, bg);
+            dataCell(r.getCell(4), b.amount, BRL_FMT, bg);
+        });
+
+        ws.addRow([]);
+    }
+
+    // Unpaid bills detail (all active bills not paid this month)
+    const unpaidBills = activeBills.filter(b => !(b.paidMonths || []).includes(month));
+    if (unpaidBills.length > 0) {
+        const uph = ws.addRow(['CONTAS NÃO PAGAS NO MÊS', '', '', '', '']);
+        ws.mergeCells(`A${uph.number}:E${uph.number}`);
+        headerCell(ws.getCell(`A${uph.number}`), 'CONTAS NÃO PAGAS NO MÊS', 'FFC000', '000000');
+        uph.height = 22;
+
+        const updh = ws.addRow(['Descrição', 'Categoria', 'Vencimento (Dia)', 'Valor (R$)', 'Vencida?']);
+        ['A', 'B', 'C', 'D', 'E'].forEach((c, i) => headerCell(ws.getCell(`${c}${updh.number}`), updh.getCell(i + 1).value, COLORS.sectionBg, '000000'));
+        updh.height = 20;
+
+        unpaidBills.forEach((b, idx) => {
+            const isOverdue = overdueBills.some(o => o.id === b.id);
+            const bg = isOverdue ? (idx % 2 === 0 ? COLORS.expenseBg : COLORS.altRow) : (idx % 2 === 0 ? COLORS.billBg : COLORS.altRow);
+            const r = ws.addRow([b.description, b.category, `Dia ${b.dueDay}`, b.amount, isOverdue ? 'Sim' : 'Não']);
+            r.height = 20;
+            dataCell(r.getCell(1), b.description, null, bg);
+            dataCell(r.getCell(2), b.category, null, bg);
+            dataCell(r.getCell(3), `Dia ${b.dueDay}`, null, bg);
+            dataCell(r.getCell(4), b.amount, BRL_FMT, bg);
+            dataCell(r.getCell(5), isOverdue ? 'Sim' : 'Não', null, bg);
+            if (isOverdue) r.getCell(5).font = { bold: true, color: { argb: 'C00000' } };
+        });
+
+        ws.addRow([]);
+    }
+
+    // Overdue bills detail
+    if (overdueBills.length > 0) {
+        const oh = ws.addRow(['CONTAS VENCIDAS (INADIMPLENTES)', '', '', '', '']);
+        ws.mergeCells(`A${oh.number}:E${oh.number}`);
+        headerCell(ws.getCell(`A${oh.number}`), 'CONTAS VENCIDAS (INADIMPLENTES)', 'C00000', 'FFFFFF');
+        oh.height = 22;
+
+        const odh = ws.addRow(['Descrição', 'Categoria', 'Vencimento (Dia)', 'Valor (R$)', '']);
+        ['A', 'B', 'C', 'D'].forEach((c, i) => headerCell(ws.getCell(`${c}${odh.number}`), odh.getCell(i + 1).value, COLORS.sectionBg, '000000'));
+        odh.height = 20;
+
+        overdueBills.forEach((b, idx) => {
+            const bg = idx % 2 === 0 ? COLORS.expenseBg : COLORS.altRow;
+            const r = ws.addRow([b.description, b.category, `Dia ${b.dueDay}`, b.amount, '']);
+            r.height = 20;
+            dataCell(r.getCell(1), b.description, null, bg);
+            dataCell(r.getCell(2), b.category, null, bg);
+            dataCell(r.getCell(3), `Dia ${b.dueDay}`, null, bg);
+            dataCell(r.getCell(4), b.amount, BRL_FMT, bg);
+        });
+    }
 }
 
 // ── Sheet: Comparison ─────────────────────────────────────────────────────────

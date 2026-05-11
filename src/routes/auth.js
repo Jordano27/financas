@@ -20,12 +20,13 @@ router.post('/login', (req, res) => {
         return res.status(403).json({ error: 'Sua conta está desativada. Entre em contato com o administrador.' });
     }
     const role = user.role || 'user';
+    const plan = user.plan || 'free';
     const token = jwt.sign(
-        { sub: user.id, name: user.name, email: user.email, role },
+        { sub: user.id, name: user.name, email: user.email, role, plan },
         JWT_SECRET,
         { expiresIn: JWT_EXPIRES }
     );
-    res.json({ token, expiresIn: JWT_EXPIRES, name: user.name, role });
+    res.json({ token, expiresIn: JWT_EXPIRES, name: user.name, role, plan });
 });
 
 // POST /api/auth/register

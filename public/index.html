@@ -52,6 +52,13 @@
                     </svg>
                     <span class="nav-label">Contas Fixas</span>
                 </button>
+                <button class="nav-item" data-page="investments" title="Investimentos">
+                    <svg viewBox="0 0 24 24">
+                        <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+                        <polyline points="16 7 22 7 22 13" />
+                    </svg>
+                    <span class="nav-label">Investimentos</span>
+                </button>
                 <button class="nav-item" data-page="reports" title="Relatórios">
                     <svg viewBox="0 0 24 24">
                         <line x1="18" y1="20" x2="18" y2="10" />
@@ -85,7 +92,9 @@
                         </button>
                     </div>
                 </div>
-                <span class="sidebar-version">v2.0.0</span>
+                <div class="plan-badge hidden" id="planBadge">
+                    <button class="plan-badge__upgrade" id="upgradePlanBtn">Premium⭐</button>
+                </div>
             </div>
         </aside>
 
@@ -180,6 +189,15 @@
                     <div id="reports-content"></div>
                 </section>
 
+                <!-- Investments -->
+                <section class="page hidden" id="page-investments">
+                    <div class="page-header">
+                        <div class="summary-pill invest" id="investments-total"></div>
+                        <button class="btn btn-invest" id="addInvestmentBtn">+ Adicionar Investimento</button>
+                    </div>
+                    <div class="card" id="investments-table"></div>
+                </section>
+
             </div>
         </div>
     </div>
@@ -229,43 +247,74 @@
 
             <!-- Vista: Cadastro -->
             <div id="registerView" class="hidden">
-                <h1 class="login-title">Criar conta</h1>
-                <form class="login-form" id="registerForm" autocomplete="on">
-                    <div class="login-field">
-                        <label for="regName">Nome</label>
-                        <input id="regName" type="text" name="name" autocomplete="name" placeholder="Seu nome completo"
-                            required />
-                        <span class="field-hint">Mínimo 2 caracteres</span>
-                    </div>
-                    <div class="login-field">
-                        <label for="regEmail">E-mail</label>
-                        <input id="regEmail" type="email" name="email" autocomplete="email" placeholder="seu@email.com"
-                            required />
-                    </div>
-                    <div class="login-field">
-                        <label for="regPass">Senha</label>
-                        <input id="regPass" type="password" name="password" autocomplete="new-password"
-                            placeholder="••••••••" required />
-                        <span class="field-hint">Mínimo 8 caracteres, letras e números</span>
-                        <div class="password-strength hidden" id="passStrength">
-                            <div class="strength-bar"><span id="strengthFill"></span></div>
-                            <span id="strengthLabel"></span>
+                <h1 class="login-title" style="margin-bottom:16px">Criar conta</h1>
+                <div class="register-layout">
+                    <form class="login-form" id="registerForm" autocomplete="on">
+                        <div class="login-field">
+                            <label for="regName">Nome</label>
+                            <input id="regName" type="text" name="name" autocomplete="name"
+                                placeholder="Seu nome completo" required />
+                            <span class="field-hint">Mínimo 2 caracteres</span>
+                        </div>
+                        <div class="login-field">
+                            <label for="regEmail">E-mail</label>
+                            <input id="regEmail" type="email" name="email" autocomplete="email"
+                                placeholder="seu@email.com" required />
+                        </div>
+                        <div class="login-field">
+                            <label for="regPass">Senha</label>
+                            <input id="regPass" type="password" name="password" autocomplete="new-password"
+                                placeholder="••••••••" required />
+                            <span class="field-hint">Mínimo 8 caracteres, letras e números</span>
+                            <div class="password-strength hidden" id="passStrength">
+                                <div class="strength-bar"><span id="strengthFill"></span></div>
+                                <span id="strengthLabel"></span>
+                            </div>
+                        </div>
+                        <div class="login-field">
+                            <label for="regPassConfirm">Confirmar senha</label>
+                            <input id="regPassConfirm" type="password" name="confirmPassword"
+                                autocomplete="new-password" placeholder="••••••••" required />
+                        </div>
+                        <p class="login-error hidden" id="registerError"></p>
+                        <button class="btn btn-primary login-btn" type="submit" id="registerBtn">Criar conta</button>
+                        <button class="btn-link login-switch" type="button" id="goToLogin">Voltar para login</button>
+                    </form>
+
+                    <div class="plan-selector">
+                        <p class="plan-selector__label">Escolha seu plano</p>
+                        <div class="plan-card" id="planFree">
+                            <div class="plan-card__header">
+                                <span class="plan-card__name">Free</span>
+                                <span class="plan-card__price">Grátis</span>
+                            </div>
+                            <ul class="plan-card__features">
+                                <li class="ok">Controle de Ganhos</li>
+                                <li class="ok">Controle de Gastos</li>
+                                <li class="ok">Contas Fixas</li>
+                                <li class="ok">Investimentos</li>
+                            </ul>
+                        </div>
+                        <div class="plan-card plan-card--premium" id="planPremium">
+                            <div class="plan-card__header">
+                                <span class="plan-card__name">⭐ Premium</span>
+                                <span class="plan-card__price">R$&nbsp;49,90</span>
+                            </div>
+                            <ul class="plan-card__features">
+                                <li class="ok">Tudo do plano Free</li>
+                                <li class="ok">Dashboard completo</li>
+                                <li class="ok">Relatórios detalhados</li>
+                                <li class="ok">Exportar Excel</li>
+                            </ul>
                         </div>
                     </div>
-                    <div class="login-field">
-                        <label for="regPassConfirm">Confirmar senha</label>
-                        <input id="regPassConfirm" type="password" name="confirmPassword" autocomplete="new-password"
-                            placeholder="••••••••" required />
-                    </div>
-                    <p class="login-error hidden" id="registerError"></p>
-                    <button class="btn btn-primary login-btn" type="submit" id="registerBtn">Salvar</button>
-                    <button class="btn-link login-switch" type="button" id="goToLogin">Voltar para login</button>
-                </form>
+                </div>
             </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
     <script type="module" src="app.js"></script>
 </body>
 

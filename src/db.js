@@ -11,13 +11,15 @@ const CATEGORIES_FILE = join(DATA_DIR, 'financas.json');
 const DEFAULT_CATEGORIES = {
     income: ['Salário', 'Freelance', 'Investimentos', 'Aluguel Recebido', 'Outros'],
     expense: ['Alimentação', 'Transporte', 'Moradia', 'Saúde', 'Educação', 'Lazer', 'Vestuário', 'Outros'],
-    bill: ['Água', 'Luz', 'Internet', 'Telefone', 'Aluguel', 'Condomínio', 'Streaming', 'Cartão de Crédito', 'Academia', 'Seguro', 'Outros']
+    bill: ['Água', 'Luz', 'Internet', 'Telefone', 'Aluguel', 'Condomínio', 'Streaming', 'Cartão de Crédito', 'Academia', 'Seguro', 'Outros'],
+    investment: ['Poupança', 'CDB', 'LCI/LCA', 'Tesouro Direto', 'Ações', 'Fundos de Investimento', 'Criptomoedas', 'Outros']
 };
 
 // ── Banco de dados por usuário ────────────────────────────────────────────────
 const DEFAULT_USER_DB = {
     transactions: [],
-    bills: []
+    bills: [],
+    investments: []
 };
 
 function ensureDataDir() {

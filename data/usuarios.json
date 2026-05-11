@@ -6,7 +6,7 @@
     "passwordHash": "97e9df6b1569f429b3a46cba3dc9641a49fc050a48dcc7fb2e8ed38144787cadc7d6653769dc38abd8aeac668b28969b1f366bf70da3dd00be60c2f6adf6ff02",
     "salt": "2e87626219d2971f2ca1a26330ff6552",
     "createdAt": "2026-05-07T21:07:24.171Z",
-    "active": true
+    "active": false
   },
   {
     "id": "9ce0c803-1427-465a-b366-cb28e11b39df",
@@ -34,7 +34,8 @@
     "salt": "49618c8c7eabf0baeb539469a1ef3b45",
     "role": "user",
     "active": true,
-    "createdAt": "2026-05-07T21:52:47.762Z"
+    "createdAt": "2026-05-07T21:52:47.762Z",
+    "plan": "premium"
   },
   {
     "id": "e7be13e8-6170-4fd4-a382-c28fc76a1da6",
@@ -45,5 +46,16 @@
     "role": "user",
     "active": true,
     "createdAt": "2026-05-08T03:13:16.083Z"
+  },
+  {
+    "id": "8a1acde5-698b-45a9-b048-99d7e8dbb74c",
+    "name": "testando",
+    "email": "testando@teste.com.br",
+    "passwordHash": "ef7c51cba05c2d854931e33537a15cea9050f710ed9b10c0818422aa41449c9ff9490dafabfb3776440bf721717176513a0d143796f6998ca8859804df5ba6c4",
+    "salt": "65dcfd7acc9a08e2ab4a53c270c0131b",
+    "role": "user",
+    "plan": "free",
+    "active": true,
+    "createdAt": "2026-05-11T04:07:19.058Z"
   }
 ]

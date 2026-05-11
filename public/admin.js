@@ -94,7 +94,14 @@ async function loadDashboard() {
     document.getElementById('admin-summary-cards').innerHTML = loader();
     document.getElementById('admin-users-table').innerHTML = loader();
     try {
-        const metrics = await api('GET', '/api/admin/metrics');
+        const [metrics, users] = await Promise.all([
+            api('GET', '/api/admin/metrics'),
+            api('GET', '/api/admin/users')
+        ]);
+        // Enrich metrics with plan from users list (in case metrics doesn't carry plan yet)
+        const planMap = {};
+        users.forEach(u => { planMap[u.id] = u.plan || 'free'; });
+        metrics.forEach(m => { if (!m.plan) m.plan = planMap[m.id] || 'free'; });
         renderSummaryCards(metrics);
         renderUsersMetricsTable(metrics);
     } catch (e) { toast(e.message, 'error'); }
@@ -103,6 +110,10 @@ async function loadDashboard() {
 function renderSummaryCards(metrics) {
     const totalUsers = metrics.length;
     const activeUsers = metrics.filter(u => u.active).length;
+    const premiumUsers = metrics.filter(u => u.plan === 'premium').length;
+    const freeUsers = totalUsers - premiumUsers;
+    const premiumPct = totalUsers > 0 ? ((premiumUsers / totalUsers) * 100).toFixed(1) : '0.0';
+    const freePct = totalUsers > 0 ? ((freeUsers / totalUsers) * 100).toFixed(1) : '0.0';
     const totalIncome = metrics.reduce((s, u) => s + (u.currentMonth?.income || 0), 0);
     const totalBalance = metrics.reduce((s, u) => s + (u.currentMonth?.balance || 0), 0);
 
@@ -126,6 +137,26 @@ function renderSummaryCards(metrics) {
         <div class="stat-card__label">Média de Poupança</div>
         <div class="stat-card__value">${metrics.length ? (metrics.reduce((s, u) => s + (u.currentMonth?.savingsRate || 0), 0) / metrics.length).toFixed(1) : 0}%</div>
         <div class="stat-card__sub">Média entre usuários ativos</div>
+    </div>
+    <div class="stat-card invest">
+        <div class="stat-card__label">⭐ Plano Premium</div>
+        <div class="stat-card__value" style="color:#f59e0b">${premiumUsers}</div>
+        <div class="stat-card__sub">${premiumPct}% dos usuários</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card__label">Plano Free</div>
+        <div class="stat-card__value" style="color:var(--text-2)">${freeUsers}</div>
+        <div class="stat-card__sub">${freePct}% dos usuários</div>
+    </div>
+    <div class="plan-bar-wrap">
+        <div class="plan-bar-label">
+            <span>⭐ Premium &mdash; ${premiumPct}%</span>
+            <span>Free &mdash; ${freePct}%</span>
+        </div>
+        <div class="plan-bar">
+            <div class="plan-bar__premium" style="width:${premiumPct}%"></div>
+            <div class="plan-bar__free" style="width:${freePct}%"></div>
+        </div>
     </div>`;
 }
 
@@ -138,12 +169,13 @@ function renderUsersMetricsTable(metrics) {
     <div class="table-wrap">
     <table class="data-table">
         <thead><tr>
-            <th>Usuário</th><th>Status</th><th>Ganhos</th><th>Saídas</th><th>Saldo</th><th>Poupança</th><th>Meses</th>
+            <th>Usuário</th><th>Plano</th><th>Status</th><th>Ganhos</th><th>Saídas</th><th>Saldo</th><th>Poupança</th><th>Meses</th>
         </tr></thead>
         <tbody>
         ${metrics.map(u => `
             <tr>
                 <td><strong>${esc(u.name)}</strong><br><small style="color:var(--text-2)">${esc(u.email)}</small></td>
+                <td><span class="badge ${u.plan === 'premium' ? 'badge-premium' : 'badge-free'}">${u.plan === 'premium' ? '⭐ Premium' : 'Free'}</span></td>
                 <td><span class="badge ${u.active ? 'badge-success' : 'badge-danger'}">${u.active ? 'Ativo' : 'Inativo'}</span></td>
                 <td class="num positive">${fmt(u.currentMonth?.income)}</td>
                 <td class="num negative">${fmt(u.currentMonth?.outflow)}</td>
@@ -175,15 +207,23 @@ function renderUsersTable(users) {
     <div class="table-wrap">
     <table class="data-table">
         <thead><tr>
-            <th>Nome</th><th>E-mail</th><th>Cadastro</th><th>Status</th><th>Ações</th>
+            <th>Nome</th><th>Status</th><th>Plano</th><th>Ações</th>
         </tr></thead>
         <tbody>
         ${regular.map(u => `
             <tr id="user-row-${u.id}">
-                <td><strong>${esc(u.name)}</strong></td>
-                <td>${esc(u.email)}</td>
-                <td>${fmtDate(u.createdAt)}</td>
+                <td>
+                    <strong>${esc(u.name)}</strong><br>
+                    <small style="color:var(--text-2)">${esc(u.email)}</small>
+                </td>
                 <td><span class="badge ${u.active ? 'badge-success' : 'badge-danger'}">${u.active ? 'Ativo' : 'Inativo'}</span></td>
+                <td>
+                    <label class="plan-toggle" title="${u.plan === 'premium' ? 'Clique para remover Premium' : 'Clique para ativar Premium'}">
+                        <input type="checkbox" class="plan-toggle__input" data-plan-user="${u.id}" ${u.plan === 'premium' ? 'checked' : ''}>
+                        <span class="plan-toggle__track"></span>
+                        <span class="plan-toggle__label">${u.plan === 'premium' ? '⭐ Premium' : 'Free'}</span>
+                    </label>
+                </td>
                 <td class="actions-cell">
                     <button class="btn btn-sm btn-outline"
                         data-edit-user="${u.id}"
@@ -206,6 +246,23 @@ function renderUsersTable(users) {
             openEditModal(editBtn.dataset.editUser, editBtn.dataset.editName, editBtn.dataset.editEmail);
         } else if (toggleBtn) {
             await toggleUser(toggleBtn.dataset.toggleUser, toggleBtn.dataset.toggleActive === 'true');
+        }
+    });
+
+    wrap.addEventListener('change', async e => {
+        const checkbox = e.target.closest('[data-plan-user]');
+        if (!checkbox) return;
+        const id = checkbox.dataset.planUser;
+        const plan = checkbox.checked ? 'premium' : 'free';
+        try {
+            await api('PATCH', `/api/admin/users/${id}/plan`, { plan });
+            const label = checkbox.closest('.plan-toggle').querySelector('.plan-toggle__label');
+            label.textContent = plan === 'premium' ? '⭐ Premium' : 'Free';
+            checkbox.closest('.plan-toggle').title = plan === 'premium' ? 'Clique para remover Premium' : 'Clique para ativar Premium';
+            toast(`Plano ${plan === 'premium' ? 'Premium ativado' : 'Free definido'} com sucesso`, 'success');
+        } catch (err) {
+            checkbox.checked = !checkbox.checked;
+            toast(err.message, 'error');
         }
     });
 }

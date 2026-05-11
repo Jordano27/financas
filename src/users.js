@@ -67,6 +67,7 @@ export function listUsers() {
         name: u.name,
         email: u.email,
         role: u.role || 'user',
+        plan: u.plan || 'free',
         active: u.active !== false,
         createdAt: u.createdAt
     }));
@@ -89,6 +90,7 @@ export function registerUser({ name, email, password, role = 'user' }) {
         passwordHash: hash,
         salt,
         role,
+        plan: 'free',
         active: true,
         createdAt: new Date().toISOString()
     };
@@ -96,7 +98,7 @@ export function registerUser({ name, email, password, role = 'user' }) {
     users.push(user);
     saveUsers(users);
 
-    return { id: user.id, name: user.name, email: user.email, role: user.role };
+    return { id: user.id, name: user.name, email: user.email, role: user.role, plan: user.plan };
 }
 
 export function updateUser(id, { name, email, password }) {
@@ -127,7 +129,17 @@ export function setUserActive(id, active) {
     if (user.role === 'admin') throw new Error('Não é possível desativar um administrador');
     user.active = active;
     saveUsers(users);
-    return { id: user.id, active: user.active };
+    return { id: user.id, name: user.name, email: user.email, active: user.active };
+}
+
+export function setUserPlan(id, plan) {
+    const users = loadUsers();
+    const user = users.find(u => u.id === id);
+    if (!user) throw new Error('Usuário não encontrado');
+    if (user.role === 'admin') throw new Error('Não é possível alterar o plano de um administrador');
+    user.plan = plan === 'premium' ? 'premium' : 'free';
+    saveUsers(users);
+    return { id: user.id, name: user.name, email: user.email, plan: user.plan };
 }
 
 export function verifyPassword(user, password) {

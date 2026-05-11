@@ -21,3 +21,8 @@ export function requireAdmin(req, res, next) {
     }
     next();
 }
+
+export function requirePremium(req, res, next) {
+    if (req.user?.role === 'admin' || req.user?.plan === 'premium') return next();
+    return res.status(403).json({ error: 'Funcionalidade disponível apenas no plano Premium' });
+}

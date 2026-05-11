@@ -103,6 +103,21 @@ export function toggleBill(userId, id) {
     return bill;
 }
 
+export function toggleBillPaid(userId, id, month) {
+    const db = loadUserDB(userId);
+    const bill = db.bills.find(b => b.id === id);
+    if (!bill) return null;
+    if (!bill.paidMonths) bill.paidMonths = [];
+    const idx = bill.paidMonths.indexOf(month);
+    if (idx === -1) {
+        bill.paidMonths.push(month);
+    } else {
+        bill.paidMonths.splice(idx, 1);
+    }
+    saveUserDB(userId, db);
+    return bill;
+}
+
 export function deleteBill(userId, id) {
     const db = loadUserDB(userId);
     const before = db.bills.length;
@@ -121,6 +136,56 @@ export function updateBill(userId, id, { description, amount, category, dueDay }
     if (dueDay !== undefined) bill.dueDay = Number(dueDay);
     saveUserDB(userId, db);
     return bill;
+}
+
+// ── Investments (poupança e outros investimentos) ─────────────────────────────
+
+export function addInvestment(userId, { description, amount, category, date }) {
+    const db = loadUserDB(userId);
+    if (!db.investments) db.investments = [];
+    const investment = {
+        id: crypto.randomUUID(),
+        description,
+        amount: Number(amount),
+        category,
+        date: date || todayISO(),
+        createdAt: new Date().toISOString()
+    };
+    db.investments.push(investment);
+    saveUserDB(userId, db);
+    return investment;
+}
+
+export function getInvestments(userId, { month } = {}) {
+    const db = loadUserDB(userId);
+    let list = db.investments || [];
+    if (month) list = list.filter(i => monthKey(i.date) === month);
+    return list.sort((a, b) => b.date.localeCompare(a.date));
+}
+
+export function deleteInvestment(userId, id) {
+    const db = loadUserDB(userId);
+    const before = (db.investments || []).length;
+    db.investments = (db.investments || []).filter(i => i.id !== id);
+    saveUserDB(userId, db);
+    return db.investments.length < before;
+}
+
+export function updateInvestment(userId, id, { description, amount, category, date }) {
+    const db = loadUserDB(userId);
+    const inv = (db.investments || []).find(i => i.id === id);
+    if (!inv) return null;
+    if (description !== undefined) inv.description = String(description).trim();
+    if (amount !== undefined) inv.amount = Number(amount);
+    if (category !== undefined) inv.category = category;
+    if (date !== undefined) inv.date = date;
+    saveUserDB(userId, db);
+    return inv;
+}
+
+export function getTotalInvested(userId) {
+    const db = loadUserDB(userId);
+    return (db.investments || []).reduce((s, i) => s + i.amount, 0);
 }
 
 // ── Month query helpers ───────────────────────────────────────────────────────

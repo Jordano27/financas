@@ -13,7 +13,19 @@ function clearToken() {
   localStorage.removeItem(TOKEN_KEY);
 }
 
+function getTokenPayload() {
+  const token = getToken();
+  if (!token) return null;
+  try { return JSON.parse(atob(token.split('.')[1])); } catch { return null; }
+}
+
+function getUserPlan() {
+  return getTokenPayload()?.plan || 'free';
+}
+
 // ── Alternância login / cadastro ──────────────────────────────────────────────
+let selectedPlan = 'free';
+
 function showView(view) {
   document.getElementById('loginView').classList.toggle('hidden', view !== 'login');
   document.getElementById('registerView').classList.toggle('hidden', view !== 'register');
@@ -22,8 +34,19 @@ function showView(view) {
   document.getElementById('loginForm').reset();
   document.getElementById('registerForm').reset();
   resetStrengthBar();
+  document.querySelector('.login-card').classList.toggle('register-wide', view === 'register');
+  if (view === 'register') {
+    selectedPlan = 'free';
+    selectPlanCard('free');
+  }
   if (view === 'login') document.getElementById('loginEmail').focus();
   else document.getElementById('regName').focus();
+}
+
+function selectPlanCard(plan) {
+  selectedPlan = plan;
+  document.getElementById('planFree').classList.toggle('selected', plan === 'free');
+  document.getElementById('planPremium').classList.toggle('selected', plan === 'premium');
 }
 
 function showLoginOverlay() {
@@ -101,10 +124,96 @@ async function doRegister(name, email, password) {
   return data;
 }
 
+function showPixPaymentModal(userName) {
+  const pixKey = '04259296043';
+  const whatsapp = '54999047760';
+  const overlay = document.createElement('div');
+  overlay.className = 'pix-overlay';
+  overlay.id = 'pixOverlay';
+  overlay.innerHTML = `
+    <div class="pix-modal">
+      <div class="pix-modal__header">
+        <span class="pix-modal__title">⭐ Ativação do Plano Premium</span>
+      </div>
+      <div class="pix-modal__body">
+        <p class="pix-modal__greeting">Olá, <strong>${esc(userName)}</strong>! Sua conta foi criada com sucesso.</p>
+        <p class="pix-modal__info">Para ativar o plano Premium, realize o pagamento via PIX:</p>
+        <div class="pix-amount">R$ 50,00</div>
+        <div class="pix-qr-wrap">
+          <canvas id="pixQrCanvas"></canvas>
+        </div>
+        <div class="pix-key-wrap">
+          <span class="pix-key-label">Chave PIX (CPF)</span>
+          <div class="pix-key-row">
+            <span class="pix-key-value" id="pixKeyValue">${pixKey}</span>
+            <button class="btn btn-outline pix-copy-btn" id="pixCopyBtn">Copiar</button>
+          </div>
+        </div>
+        <div class="pix-instructions">
+          <p>📱 Após o pagamento, envie SEU EMAIL e o COMPROVANTE para o WhatsApp:</p>
+          <a class="pix-whatsapp-link" href="https://wa.me/55${whatsapp}?text=Comprovante%20de%20pagamento%20Premium%20-%20${encodeURIComponent(userName)}" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:#25d366;vertical-align:middle;margin-right:6px"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.125.554 4.122 1.522 5.854L.057 23.882l6.174-1.438A11.945 11.945 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.792 9.792 0 0 1-5.006-1.374l-.36-.214-3.664.854.878-3.568-.234-.374A9.787 9.787 0 0 1 2.182 12C2.182 6.57 6.57 2.182 12 2.182S21.818 6.57 21.818 12 17.43 21.818 12 21.818z"/></svg>
+            (54) 99904-7760
+          </a>
+          <p class="pix-waiting">⏳ O acesso Premium será liberado em até <strong>24 horas</strong> após a confirmação do pagamento.</p>
+        </div>
+        <button class="btn btn-primary pix-close-btn" id="pixCloseBtn">Entendido — Fazer login</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  // Generate QR code
+  if (typeof QRCode !== 'undefined') {
+    QRCode.toCanvas(document.getElementById('pixQrCanvas'), pixKey, {
+      width: 180,
+      color: { dark: '#0f172a', light: '#ffffff' }
+    });
+  }
+
+  // Copy PIX key
+  document.getElementById('pixCopyBtn').addEventListener('click', () => {
+    navigator.clipboard.writeText(pixKey).then(() => {
+      document.getElementById('pixCopyBtn').textContent = 'Copiado!';
+      setTimeout(() => { document.getElementById('pixCopyBtn').textContent = 'Copiar'; }, 2000);
+    });
+  });
+
+  document.getElementById('pixCloseBtn').addEventListener('click', () => {
+    overlay.remove();
+  });
+}
+
+function applyPlanRestrictions() {
+  const plan = getUserPlan();
+  const payload = getTokenPayload();
+  const isPremium = plan === 'premium' || payload?.role === 'admin';
+
+  // Hide nav items entirely for free users
+  document.querySelectorAll('[data-page="dashboard"]').forEach(btn => {
+    btn.classList.toggle('hidden', !isPremium);
+  });
+  document.querySelectorAll('[data-page="reports"]').forEach(btn => {
+    btn.classList.toggle('hidden', !isPremium);
+  });
+
+  // Show/hide export button
+  const exportBtn = document.getElementById('exportBtn');
+  if (exportBtn) exportBtn.classList.toggle('hidden', !isPremium);
+
+  // Show/hide plan badge
+  const badge = document.getElementById('planBadge');
+  if (badge) badge.classList.toggle('hidden', isPremium);
+}
+
 function bindLogin() {
   // Alternar vistas
   document.getElementById('goToRegister').addEventListener('click', () => showView('register'));
   document.getElementById('goToLogin').addEventListener('click', () => showView('login'));
+
+  // Plan card selection
+  document.getElementById('planFree').addEventListener('click', () => selectPlanCard('free'));
+  document.getElementById('planPremium').addEventListener('click', () => selectPlanCard('premium'));
 
   // Indicador de força da senha
   document.getElementById('regPass').addEventListener('input', e => updateStrengthBar(e.target.value));
@@ -162,16 +271,21 @@ function bindLogin() {
 
     try {
       await doRegister(name, email, password);
-      showView('login');
-      // Preenche o email para facilitar o login imediato
-      document.getElementById('loginEmail').value = email;
-      toast(`Usuário "${name}" cadastrado com sucesso! Faça login para continuar.`, 'success');
+      if (selectedPlan === 'premium') {
+        showView('login');
+        document.getElementById('loginEmail').value = email;
+        showPixPaymentModal(name);
+      } else {
+        showView('login');
+        document.getElementById('loginEmail').value = email;
+        toast(`Usuário "${name}" cadastrado com sucesso! Faça login para continuar.`, 'success');
+      }
     } catch (err) {
       errEl.textContent = err.message;
       errEl.classList.remove('hidden');
     } finally {
       btn.disabled = false;
-      btn.textContent = 'Salvar';
+      btn.textContent = 'Criar conta';
     }
   });
 
@@ -195,6 +309,12 @@ function bindLogin() {
     document.getElementById('userDropdown').classList.add('hidden');
     showMyAccountModal();
   });
+
+  // Upgrade button in sidebar badge
+  document.getElementById('upgradePlanBtn').addEventListener('click', () => {
+    const name = getTokenPayload()?.name || 'usuário';
+    showPixPaymentModal(name);
+  });
 }
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -202,7 +322,7 @@ const state = {
   page: 'dashboard',
   month: '',
   months: [],
-  categories: { income: [], expense: [], bill: [] },
+  categories: { income: [], expense: [], bill: [], investment: [] },
   charts: {}
 };
 
@@ -276,7 +396,9 @@ async function init() {
   });
   document.getElementById('monthSelect').addEventListener('change', onMonthChange);
   setupUserAvatar();
-  navigate('dashboard');
+  applyPlanRestrictions();
+  const startPage = getUserPlan() === 'premium' || getTokenPayload()?.role === 'admin' ? 'dashboard' : 'income';
+  navigate(startPage);
 }
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
@@ -288,12 +410,13 @@ if (getToken()) {
 }
 
 async function loadCategories() {
-  const [income, expense, bill] = await Promise.all([
+  const [income, expense, bill, investment] = await Promise.all([
     api('GET', '/api/categories/income'),
     api('GET', '/api/categories/expense'),
-    api('GET', '/api/categories/bill')
+    api('GET', '/api/categories/bill'),
+    api('GET', '/api/categories/investment')
   ]);
-  state.categories = { income, expense, bill };
+  state.categories = { income, expense, bill, investment };
 }
 
 async function loadMonths() {
@@ -341,11 +464,13 @@ function onMonthChange() {
 function bindNav() {
   document.getElementById('nav').addEventListener('click', e => {
     const btn = e.target.closest('[data-page]');
-    if (btn) navigate(btn.dataset.page);
+    if (!btn) return;
+    navigate(btn.dataset.page);
   });
   document.getElementById('addIncomeBtn').addEventListener('click', () => showTransactionModal('income'));
   document.getElementById('addExpenseBtn').addEventListener('click', () => showTransactionModal('expense'));
   document.getElementById('addBillBtn').addEventListener('click', () => showBillModal());
+  document.getElementById('addInvestmentBtn').addEventListener('click', () => showInvestmentModal());
 }
 
 const PAGE_TITLES = {
@@ -353,6 +478,7 @@ const PAGE_TITLES = {
   income: 'Ganhos',
   expense: 'Gastos',
   bills: 'Contas Fixas',
+  investments: 'Investimentos',
   reports: 'Relatórios'
 };
 
@@ -384,23 +510,67 @@ function renderPage(page) {
     case 'income': return loadTransactions('income');
     case 'expense': return loadTransactions('expense');
     case 'bills': return loadBills();
+    case 'investments': return loadInvestments();
     case 'reports': return loadReports();
   }
 }
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
+function calcPrevMonth(yyyyMM) {
+  const [y, m] = yyyyMM.split('-').map(Number);
+  const d = new Date(y, m - 2, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
 async function loadDashboard() {
-  const [stats] = await Promise.all([
-    api('GET', `/api/stats/${state.month}`)
+  const prevMonth = calcPrevMonth(state.month);
+  const [stats, prevStats] = await Promise.all([
+    api('GET', `/api/stats/${state.month}`),
+    api('GET', `/api/stats/${prevMonth}`)
   ]);
-  renderStatCards(stats);
+  renderStatCards(stats, prevStats);
   renderRecentList(stats);
   await renderCharts(stats);
 }
 
-function renderStatCards(stats) {
-  const { totalIncome, totalExpense, totalBills, totalOutflow, balance, health } = stats;
+function renderStatCards(stats, prevStats) {
+  const { totalIncome, totalExpense, totalBills, totalOutflow, totalInvested, balance, health } = stats;
   const savingsRate = stats.savingsRate ?? 0;
+  const prevInvested = prevStats?.totalInvested ?? 0;
+  const investDelta = (totalInvested ?? 0) - prevInvested;
+  const investDeltaSign = investDelta > 0 ? '+' : '';
+  const investDeltaColor = investDelta >= 0 ? 'var(--income)' : 'var(--expense)';
+  const prevMonthName = fmtMonth(calcPrevMonth(state.month));
+  const investDeltaLabel = prevInvested === 0
+    ? 'sem investimento no mês anterior'
+    : `mês ant.: ${fmt(prevInvested)}`;
+  const investPctLabel = prevInvested > 0
+    ? ` (${investDeltaSign}${((investDelta / prevInvested) * 100).toFixed(1)}%)`
+    : '';
+
+  // Inadimplência — apenas contas vencidas e não pagas
+  const activeBills = stats.bills || [];
+  const today = new Date();
+  const currentYM = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+  const overdueBills = activeBills.filter(b => {
+    const isPaid = (b.paidMonths || []).includes(state.month);
+    if (isPaid) return false;
+    if (state.month < currentYM) return true;   // mês passado não pago = vencida
+    if (state.month > currentYM) return false;  // mês futuro = não vencida
+    return today.getDate() > b.dueDay;           // mês atual: passou do dia de vencimento
+  });
+  const unpaidCount = overdueBills.length;
+  const totalCount = activeBills.length;
+  const unpaidValue = overdueBills.reduce((s, b) => s + b.amount, 0);
+  const unpaidPct = totalCount > 0 ? ((unpaidCount / totalCount) * 100).toFixed(1) : '0.0';
+  const defaultColor = unpaidCount === 0 ? 'var(--income)' : Number(unpaidPct) >= 50 ? 'var(--expense)' : 'var(--bills)';
+
+  // Adimplência — contas pagas no mês
+  const paidBills = activeBills.filter(b => (b.paidMonths || []).includes(state.month));
+  const paidCount = paidBills.length;
+  const paidValue = paidBills.reduce((s, b) => s + b.amount, 0);
+  const paidPct = totalCount > 0 ? ((paidCount / totalCount) * 100).toFixed(1) : '0.0';
+  const complianceColor = paidCount === totalCount && totalCount > 0 ? 'var(--income)' : Number(paidPct) >= 50 ? 'var(--bills)' : 'var(--expense)';
 
   const healthColor = health.score >= 80 ? '#34d399' : health.score >= 60 ? '#fbbf24' : '#f87171';
 
@@ -418,8 +588,8 @@ function renderStatCards(stats) {
         <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
       </div>
       <div class="stat-card__label">Total de Saídas</div>
-      <div class="stat-card__value">${fmt(totalOutflow)}</div>
-      <div class="stat-card__sub">${fmt(totalExpense)} + contas ${fmt(totalBills)}</div>
+      <div class="stat-card__value">${fmt(totalOutflow + (totalInvested ?? 0))}</div>
+      <div class="stat-card__sub">${fmt(totalExpense)} gastos + ${fmt(totalBills)} contas + ${fmt(totalInvested ?? 0)} invest.</div>
     </div>
     <div class="stat-card balance">
       <div class="stat-card__icon">
@@ -428,6 +598,49 @@ function renderStatCards(stats) {
       <div class="stat-card__label">Saldo</div>
       <div class="stat-card__value" style="color:${balance >= 0 ? 'var(--income)' : 'var(--expense)'}">${fmt(balance)}</div>
       <div class="stat-card__sub ${balance >= 0 ? 'up' : 'down'}">${savingsRate.toFixed(1)}% poupado</div>
+    </div>
+    <div class="stat-card invest">
+      <div class="stat-card__icon">
+        <svg viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+      </div>
+      <div class="stat-card__label">Investido no mês</div>
+      <div class="stat-card__value" style="color:var(--invest)">${fmt(totalInvested ?? 0)}</div>
+      <div class="stat-card__sub">${fmtMonth(state.month)}</div>
+    </div>
+    <div class="stat-card invest-delta">
+      <div class="stat-card__icon">
+        ${investDelta >= 0
+      ? `<svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>`
+      : `<svg viewBox="0 0 24 24"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>`
+    }
+      </div>
+      <div class="stat-card__label">Variação de investimentos</div>
+      <div class="stat-card__value" style="color:${investDeltaColor}">${investDeltaSign}${fmt(investDelta)}${investPctLabel}</div>
+      <div class="stat-card__sub">${investDeltaLabel}</div>
+    </div>
+    <div class="stat-card default-rate">
+      <div class="stat-card__icon">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </div>
+      <div class="stat-card__label">Inadimplência</div>
+      <div class="stat-card__value" style="color:${defaultColor}">${unpaidPct}%</div>
+      <div class="stat-card__sub">
+        ${unpaidCount === 0
+      ? 'Nenhuma conta vencida ✓'
+      : `${unpaidCount} de ${totalCount} contas · ${fmt(unpaidValue)} vencido`}
+      </div>
+    </div>
+    <div class="stat-card compliance">
+      <div class="stat-card__icon">
+        <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      </div>
+      <div class="stat-card__label">Adimplência</div>
+      <div class="stat-card__value" style="color:${complianceColor}">${paidPct}%</div>
+      <div class="stat-card__sub">
+        ${paidCount === 0
+      ? 'Nenhuma conta paga ainda'
+      : `${paidCount} de ${totalCount} contas · ${fmt(paidValue)} pago`}
+      </div>
     </div>
     <div class="stat-card health">
       <div class="stat-card__icon">
@@ -442,7 +655,8 @@ function renderStatCards(stats) {
 
 function renderRecentList(stats) {
   const bills = (stats.bills || []).map(b => ({ ...b, type: 'bill' }));
-  const all = [...stats.incomes, ...stats.expenses, ...bills]
+  const investments = (stats.investments || []).map(i => ({ ...i, type: 'investment' }));
+  const all = [...stats.incomes, ...stats.expenses, ...bills, ...investments]
     .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 
   const el = document.getElementById('recent-list');
@@ -454,11 +668,14 @@ function renderRecentList(stats) {
 
   function buildItem(t) {
     const isBill = t.type === 'bill';
-    const amountClass = isBill ? 'expense' : t.type;
-    const sign = t.type === 'income' ? '+' : '-';
+    const isInvest = t.type === 'investment';
+    const amountClass = isBill ? 'expense' : isInvest ? 'invest' : t.type;
+    const sign = t.type === 'income' ? '+' : isInvest ? '+' : '-';
     const meta = isBill
       ? `<span class="badge badge-cat">Conta fixa</span> · <span class="badge badge-cat">${esc(t.category)}</span>`
-      : `${fmtDate(t.date)} · <span class="badge badge-cat">${esc(t.category)}</span>`;
+      : isInvest
+        ? `<span class="badge badge-invest">Investimento</span> · <span class="badge badge-invest">${esc(t.category)}</span>`
+        : `${fmtDate(t.date)} · <span class="badge badge-cat">${esc(t.category)}</span>`;
     return `<div class="tx-item">
       <div class="tx-dot ${t.type}"></div>
       <div class="tx-info">
@@ -533,6 +750,12 @@ async function renderCharts(currentStats) {
           label: 'Saídas',
           data: histStats.map(s => s.totalOutflow),
           backgroundColor: 'rgba(248,113,113,.75)',
+          borderRadius: 5, borderSkipped: false
+        },
+        {
+          label: 'Investido',
+          data: histStats.map(s => s.totalInvested ?? 0),
+          backgroundColor: 'rgba(56,189,248,.75)',
           borderRadius: 5, borderSkipped: false
         }
       ]
@@ -630,7 +853,7 @@ async function loadTransactions(type) {
             <td>${esc(t.description)}</td>
             <td><span class="badge badge-cat">${esc(t.category)}</span></td>
             <td style="text-align:right" class="amount ${type}">${fmt(t.amount)}</td>
-            <td style="text-align:right;width:80px">
+            <td>
               <button class="icon-btn" data-edit-tx='${JSON.stringify({ id: t.id, type: t.type, description: t.description, amount: t.amount, category: t.category, date: t.date })}' aria-label="Editar">
                 <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
               </button>
@@ -654,7 +877,7 @@ async function loadTransactions(type) {
       const data = JSON.parse(editBtn.dataset.editTx);
       showEditTransactionModal(data, type);
     } else if (delBtn) {
-      if (!confirm('Excluir este lançamento?')) return;
+      if (!await confirmDelete('Tem certeza que deseja excluir este lançamento?')) return;
       try {
         await api('DELETE', `/api/transactions/${delBtn.dataset.delTx}`);
         toast('Lançamento excluído', 'success');
@@ -669,7 +892,11 @@ async function loadTransactions(type) {
 async function loadBills() {
   const bills = await api('GET', '/api/bills');
   const totalActive = bills.filter(b => b.active).reduce((s, b) => s + b.amount, 0);
-  document.getElementById('bills-total').textContent = `Contas ativas: ${fmt(totalActive)}/mês`;
+  const totalPaid = bills
+    .filter(b => b.active && (b.paidMonths || []).includes(state.month))
+    .reduce((s, b) => s + b.amount, 0);
+  document.getElementById('bills-total').textContent =
+    `Contas ativas: ${fmt(totalActive)}/mês · Pago em ${fmtMonth(state.month)}: ${fmt(totalPaid)}`;
 
   const grid = document.getElementById('bills-grid');
 
@@ -678,11 +905,26 @@ async function loadBills() {
     return;
   }
 
-  grid.innerHTML = bills.map(b => `
-    <div class="bill-card ${b.active ? 'active' : 'inactive'}" data-bill-id="${b.id}">
+  grid.innerHTML = bills.map(b => {
+    const isPaid = (b.paidMonths || []).includes(state.month);
+
+    // Calcular vencimento: comparar mês selecionado com hoje
+    const today = new Date();
+    const currentYM = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+    const isOverdue = b.active && !isPaid && (() => {
+      if (state.month < currentYM) return true;   // mês passado não pago
+      if (state.month > currentYM) return false;  // mês futuro
+      return today.getDate() > b.dueDay;           // mês atual: passou do dia
+    })();
+
+    return `
+    <div class="bill-card ${b.active ? 'active' : 'inactive'} ${isPaid ? 'paid' : ''} ${isOverdue ? 'overdue' : ''}" data-bill-id="${b.id}">
       <div class="bill-card__top">
         <div>
-          <div class="bill-card__name">${esc(b.description)}</div>
+          <div class="bill-card__name">
+            ${esc(b.description)}
+            ${isOverdue ? `<span class="overdue-flag">⚠ Vencida</span>` : ''}
+          </div>
           <div class="bill-card__cat">${esc(b.category)}</div>
         </div>
         <div style="text-align:right">
@@ -691,6 +933,7 @@ async function loadBills() {
         </div>
       </div>
       <div class="bill-card__actions">
+        <button class="paid-btn ${isPaid ? 'is-paid' : ''}" data-paid-bill="${b.id}">${isPaid ? '✓ Pago' : 'Em aberto'}</button>
         <button class="toggle-btn" data-toggle-bill="${b.id}">${b.active ? '✓ Ativa' : 'Inativa'}</button>
         <button class="icon-btn" data-edit-bill='${JSON.stringify({ id: b.id, description: b.description, amount: b.amount, category: b.category, dueDay: b.dueDay })}' aria-label="Editar">
           <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -700,16 +943,23 @@ async function loadBills() {
         </button>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 
   const freshGrid = grid.cloneNode(false);
   freshGrid.innerHTML = grid.innerHTML;
   grid.replaceWith(freshGrid);
   freshGrid.addEventListener('click', async e => {
+    const paidBtn = e.target.closest('[data-paid-bill]');
     const toggleBtn = e.target.closest('[data-toggle-bill]');
     const editBtn = e.target.closest('[data-edit-bill]');
     const delBtn = e.target.closest('[data-del-bill]');
-    if (toggleBtn) {
+    if (paidBtn) {
+      try {
+        await api('PATCH', `/api/bills/${paidBtn.dataset.paidBill}/paid`, { month: state.month });
+        loadBills();
+      } catch (err) { toast(err.message, 'error'); }
+    } else if (toggleBtn) {
       try {
         await api('PATCH', `/api/bills/${toggleBtn.dataset.toggleBill}/toggle`);
         toast('Status atualizado', 'info');
@@ -719,13 +969,198 @@ async function loadBills() {
       const data = JSON.parse(editBtn.dataset.editBill);
       showEditBillModal(data);
     } else if (delBtn) {
-      if (!confirm('Excluir esta conta fixa?')) return;
+      if (!await confirmDelete('Tem certeza que deseja excluir esta conta fixa?')) return;
       try {
         await api('DELETE', `/api/bills/${delBtn.dataset.delBill}`);
         toast('Conta excluída', 'success');
         loadBills();
       } catch (err) { toast(err.message, 'error'); }
     }
+  });
+}
+
+// ── Investments ───────────────────────────────────────────────────────────────
+async function loadInvestments() {
+  const [items, totalData] = await Promise.all([
+    api('GET', `/api/investments?month=${state.month}`),
+    api('GET', '/api/investments/total')
+  ]);
+
+  const monthTotal = items.reduce((s, i) => s + i.amount, 0);
+  const totalEl = document.getElementById('investments-total');
+  totalEl.textContent = `Investido em ${fmtMonth(state.month)}: ${fmt(monthTotal)} · Total acumulado: ${fmt(totalData.total)}`;
+
+  const container = document.getElementById('investments-table');
+
+  if (!items.length) {
+    container.innerHTML = emptyState(`Nenhum investimento em ${fmtMonth(state.month)}`);
+    return;
+  }
+
+  // Group totals by category
+  const byCategory = {};
+  items.forEach(i => { byCategory[i.category] = (byCategory[i.category] || 0) + i.amount; });
+
+  container.innerHTML = `
+    <div class="invest-summary">
+      ${Object.entries(byCategory).map(([cat, val]) => `
+        <div class="invest-summary__item">
+          <span class="invest-summary__cat">${esc(cat)}</span>
+          <span class="invest-summary__val">${fmt(val)}</span>
+        </div>
+      `).join('')}
+    </div>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Descri\u00e7\u00e3o</th>
+          <th>Tipo</th>
+          <th style="text-align:right">Valor</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${items.map(i => `
+          <tr>
+            <td style="color:var(--text-2);width:100px">${fmtDate(i.date)}</td>
+            <td>${esc(i.description)}</td>
+            <td><span class="badge badge-invest">${esc(i.category)}</span></td>
+            <td style="text-align:right" class="amount invest">${fmt(i.amount)}</td>
+            <td>
+              <button class="icon-btn" data-edit-invest='${JSON.stringify({ id: i.id, description: i.description, amount: i.amount, category: i.category, date: i.date })}' aria-label="Editar">
+                <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </button>
+              <button class="icon-btn danger" data-del-invest="${i.id}" aria-label="Excluir">
+                <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+              </button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+
+  const fresh = container.cloneNode(false);
+  fresh.innerHTML = container.innerHTML;
+  container.replaceWith(fresh);
+  fresh.addEventListener('click', async e => {
+    const editBtn = e.target.closest('[data-edit-invest]');
+    const delBtn = e.target.closest('[data-del-invest]');
+    if (editBtn) {
+      showEditInvestmentModal(JSON.parse(editBtn.dataset.editInvest));
+    } else if (delBtn) {
+      if (!await confirmDelete('Tem certeza que deseja excluir este investimento?')) return;
+      try {
+        await api('DELETE', `/api/investments/${delBtn.dataset.delInvest}`);
+        toast('Investimento excluído', 'success');
+        loadInvestments();
+      } catch (err) { toast(err.message, 'error'); }
+    }
+  });
+}
+
+// ── Investment modal ──────────────────────────────────────────────────────────
+function showInvestmentModal() {
+  const cats = state.categories.investment || [];
+
+  openModal(`
+    <div class="modal-title">+ Adicionar Investimento</div>
+    <form id="invest-form">
+      <div class="form-group">
+        <label>Tipo</label>
+        <select class="form-select" name="category" required>
+          ${cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Descri\u00e7\u00e3o</label>
+        <input class="form-input" name="description" type="text" placeholder="Ex: CDB Banco Inter 12%" required minlength="2" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Valor (R$)</label>
+          <input class="form-input" name="amount" type="number" step="0.01" min="0.01" placeholder="0,00" required />
+        </div>
+        <div class="form-group">
+          <label>Data</label>
+          <input class="form-input" name="date" type="date" value="${todayISO()}" required />
+        </div>
+      </div>
+      <div class="form-footer">
+        <button type="button" class="btn btn-ghost" id="cancelInvestBtn">Cancelar</button>
+        <button type="submit" class="btn btn-invest">Salvar</button>
+      </div>
+    </form>
+  `);
+
+  document.getElementById('cancelInvestBtn').addEventListener('click', closeModal);
+  document.getElementById('invest-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    try {
+      await api('POST', '/api/investments', {
+        description: fd.get('description'),
+        amount: fd.get('amount'),
+        category: fd.get('category'),
+        date: fd.get('date')
+      });
+      closeModal();
+      toast('Investimento adicionado!', 'success');
+      loadInvestments();
+    } catch (err) { toast(err.message, 'error'); }
+  });
+}
+
+// ── Edit Investment modal ─────────────────────────────────────────────────────
+function showEditInvestmentModal(inv) {
+  const cats = state.categories.investment || [];
+
+  openModal(`
+    <div class="modal-title">Editar Investimento</div>
+    <form id="edit-invest-form">
+      <div class="form-group">
+        <label>Tipo</label>
+        <select class="form-select" name="category" required>
+          ${cats.map(c => `<option value="${esc(c)}"${c === inv.category ? ' selected' : ''}>${esc(c)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Descri\u00e7\u00e3o</label>
+        <input class="form-input" name="description" type="text" value="${esc(inv.description)}" required minlength="2" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Valor (R$)</label>
+          <input class="form-input" name="amount" type="number" step="0.01" min="0.01" value="${inv.amount}" required />
+        </div>
+        <div class="form-group">
+          <label>Data</label>
+          <input class="form-input" name="date" type="date" value="${inv.date}" required />
+        </div>
+      </div>
+      <div class="form-footer">
+        <button type="button" class="btn btn-ghost" id="cancelEditInvestBtn">Cancelar</button>
+        <button type="submit" class="btn btn-invest">Salvar</button>
+      </div>
+    </form>
+  `);
+
+  document.getElementById('cancelEditInvestBtn').addEventListener('click', closeModal);
+  document.getElementById('edit-invest-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    try {
+      await api('PUT', `/api/investments/${inv.id}`, {
+        description: fd.get('description'),
+        amount: fd.get('amount'),
+        category: fd.get('category'),
+        date: fd.get('date')
+      });
+      closeModal();
+      toast('Investimento atualizado!', 'success');
+      loadInvestments();
+    } catch (err) { toast(err.message, 'error'); }
   });
 }
 
@@ -740,6 +1175,27 @@ async function loadReports() {
     api('GET', '/api/averages')
   ]);
 
+  const activeBills = (stats.bills || []).filter(b => b.active);
+  const todayR = new Date();
+  const currentYMR = `${todayR.getFullYear()}-${String(todayR.getMonth() + 1).padStart(2, '0')}`;
+  const overdueBillsR = activeBills.filter(b => {
+    const isPaid = (b.paidMonths || []).includes(state.month);
+    if (isPaid) return false;
+    if (state.month < currentYMR) return true;
+    if (state.month > currentYMR) return false;
+    return todayR.getDate() > b.dueDay;
+  });
+  const paidBillsR = activeBills.filter(b => (b.paidMonths || []).includes(state.month));
+  const totalCountR = activeBills.length;
+  const unpaidCountR = overdueBillsR.length;
+  const unpaidValueR = overdueBillsR.reduce((s, b) => s + b.amount, 0);
+  const unpaidPctR = totalCountR > 0 ? ((unpaidCountR / totalCountR) * 100).toFixed(1) : '0.0';
+  const defaultColorR = unpaidCountR === 0 ? 'var(--income)' : Number(unpaidPctR) >= 50 ? 'var(--expense)' : 'var(--bills)';
+  const paidCountR = paidBillsR.length;
+  const paidValueR = paidBillsR.reduce((s, b) => s + b.amount, 0);
+  const paidPctR = totalCountR > 0 ? ((paidCountR / totalCountR) * 100).toFixed(1) : '0.0';
+  const complianceColorR = paidCountR === totalCountR && totalCountR > 0 ? 'var(--income)' : Number(paidPctR) >= 50 ? 'var(--bills)' : 'var(--expense)';
+
   el.innerHTML = `
     <div class="reports-grid">
       ${renderHealthCard(stats.health)}
@@ -751,11 +1207,43 @@ async function loadReports() {
             ${cmpRow('Gastos Variáveis', fmt(stats.totalExpense))}
             ${cmpRow('Contas Fixas', fmt(stats.totalBills))}
             ${cmpRow('Total de Saídas', fmt(stats.totalOutflow))}
+            ${cmpRow('Investido no mês', fmt(stats.totalInvested ?? 0), 'var(--invest)')}
             ${cmpRow('Saldo', fmt(stats.balance), stats.balance >= 0 ? 'var(--income)' : 'var(--expense)')}
             ${cmpRow('Taxa de Poupança', stats.savingsRate.toFixed(1) + '%')}
           </tbody>
         </table>
       </div>
+    </div>
+
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header"><span class="card-title">Adimplência &amp; Inadimplência — ${fmtMonth(state.month)}</span></div>
+      <table class="cmp-table">
+        <tbody>
+          <tr>
+            <td style="font-weight:600">Total de contas fixas ativas</td>
+            <td colspan="3">${totalCountR} conta${totalCountR !== 1 ? 's' : ''}</td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;color:var(--income)">✓ Adimplência</td>
+            <td><span style="color:${complianceColorR};font-weight:700">${paidPctR}%</span></td>
+            <td>${paidCountR} de ${totalCountR} contas pagas</td>
+            <td style="color:var(--income)">${fmt(paidValueR)} pago</td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;color:var(--expense)">⚠ Inadimplência</td>
+            <td><span style="color:${defaultColorR};font-weight:700">${unpaidPctR}%</span></td>
+            <td>${unpaidCountR === 0 ? 'Nenhuma conta vencida' : `${unpaidCountR} de ${totalCountR} contas vencidas`}</td>
+            <td style="color:${defaultColorR}">${unpaidCountR > 0 ? fmt(unpaidValueR) + ' vencido' : '—'}</td>
+          </tr>
+          ${unpaidCountR > 0 ? overdueBillsR.map(b => `
+          <tr style="opacity:.75">
+            <td style="padding-left:24px;font-size:12px;color:var(--text-2)">${esc(b.description)}</td>
+            <td style="font-size:12px;color:var(--text-2)">Vence dia ${b.dueDay}</td>
+            <td></td>
+            <td style="font-size:12px;color:var(--expense)">${fmt(b.amount)}</td>
+          </tr>`).join('') : ''}
+        </tbody>
+      </table>
     </div>
 
     <div class="card" style="margin-bottom:20px">
@@ -910,6 +1398,23 @@ function openModal(html) {
 
 function closeModal() {
   document.getElementById('modalBackdrop').classList.add('hidden');
+}
+
+function confirmDelete(message) {
+  return new Promise(resolve => {
+    openModal(`
+      <div style="display:flex;justify-content:center;margin-bottom:18px">
+        <svg viewBox="0 0 24 24" style="width:54px;height:54px;stroke:#f87171;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </div>
+      <p style="color:var(--text-2);margin-bottom:24px">${message}</p>
+      <div style="display:flex;justify-content:flex-end;gap:10px">
+        <button class="btn btn-ghost" id="confirmCancelBtn">Cancelar</button>
+        <button class="btn btn-danger" id="confirmOkBtn">Excluir</button>
+      </div>
+    `);
+    document.getElementById('confirmOkBtn').addEventListener('click', () => { closeModal(); resolve(true); });
+    document.getElementById('confirmCancelBtn').addEventListener('click', () => { closeModal(); resolve(false); });
+  });
 }
 
 function bindSidebar() {
