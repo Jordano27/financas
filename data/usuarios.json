@@ -14,7 +14,8 @@
     "email": "gabi@lutz.com",
     "passwordHash": "f0ab288c5973ec00eadb790fe4c21dd9a88701572470de92305570c16be95d6e60e869c6c6a5c1017fba3b9fb5c2db01d12626a94251860416235733963c94e5",
     "salt": "0d2a2bc0fb4c5b821e559960a6e24a13",
-    "createdAt": "2026-05-07T21:33:31.344Z"
+    "createdAt": "2026-05-07T21:33:31.344Z",
+    "plan": "premium"
   },
   {
     "id": "511583ab-f9f6-4e9a-8ffe-cb70de569cad",
