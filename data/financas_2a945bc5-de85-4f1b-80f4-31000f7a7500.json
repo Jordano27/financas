@@ -109,15 +109,8 @@
       "targetAmount": 20000,
       "targetDate": "2027-12-01",
       "category": "VIAGEM",
-      "savedAmount": 4695.15,
+      "savedAmount": 3695.15,
       "contributions": [
-        {
-          "id": "b90362bd-c174-488c-bb7a-17174b89ea04",
-          "amount": 1000,
-          "date": "2026-05-11",
-          "note": "SALARIO DE MAIO",
-          "createdAt": "2026-05-11T16:17:50.613Z"
-        },
         {
           "id": "4055d6fc-cd11-41c2-8f6d-24c2603ec05c",
           "amount": 1000,

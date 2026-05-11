@@ -7,7 +7,7 @@ import {
     addGoal, getGoals, deleteGoal, updateGoal, addGoalContribution, deleteGoalContribution,
     getAllMonths, currentMonth, previousMonth
 } from '../transactions.js';
-import { buildMonthStats, compareMonths, buildAverages, financialHealth } from '../reports.js';
+import { buildMonthStats, compareMonths, buildAverages, financialHealth, buildHealthAnalysis } from '../reports.js';
 import { exportSpreadsheet } from '../spreadsheet.js';
 import { findUserById, updateUser } from '../users.js';
 import { requirePremium } from '../middleware/auth.js';
@@ -462,6 +462,16 @@ router.get('/insights/:month', (req, res) => {
                 total: subscriptionTotal
             }
         });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET /api/health/:month
+router.get('/health/:month', (req, res) => {
+    try {
+        const userId = req.user.sub;
+        const month = req.params.month;
+        const months = getAllMonths(userId);
+        res.json(buildHealthAnalysis(userId, month, months));
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

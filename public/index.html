@@ -76,6 +76,13 @@
                     </svg>
                     <span class="nav-label">Inteligência</span>
                 </button>
+                <button class="nav-item" data-page="health" title="Saúde Financeira">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                    </svg>
+                    <span class="nav-label">Saúde Financeira</span>
+                </button>
                 <button class="nav-item" data-page="reports" title="Relatórios">
                     <svg viewBox="0 0 24 24">
                         <line x1="18" y1="20" x2="18" y2="10" />
@@ -229,6 +236,11 @@
                     <div id="insights-content"></div>
                 </section>
 
+                <!-- Health -->
+                <section class="page hidden" id="page-health">
+                    <div id="health-content"></div>
+                </section>
+
             </div>
         </div>
     </div>
@@ -247,6 +259,51 @@
 
     <!-- ── Toasts ──────────────────────────────────────────────────── -->
     <div id="toast-container" aria-live="polite"></div>
+
+    <!-- ── Chatbot FAB + Chat Window ────────────────────────────────── -->
+    <div class="chat-fab-wrap" id="chatFabWrap">
+        <!-- Chat window (opens above FAB) -->
+        <div class="chat-window hidden" id="chatWindow" role="dialog" aria-label="Assistente virtual">
+            <div class="chat-window__header">
+                <span class="chat-window__avatar">🤖</span>
+                <div class="chat-window__info">
+                    <span class="chat-window__name">Assistente Virtual</span>
+                    <span class="chat-window__status">Online</span>
+                </div>
+                <button class="chat-window__close" id="chatClose" aria-label="Fechar chat">✕</button>
+            </div>
+            <div class="chat-messages" id="chatMessages"></div>
+            <div class="chat-options" id="chatOptions"></div>
+        </div>
+        <!-- FAB button -->
+        <button class="tour-fab" id="tourBtn" title="Assistente virtual">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
+                stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" />
+                <circle cx="8.5" cy="9.5" r="1.5" />
+                <circle cx="15.5" cy="9.5" r="1.5" />
+                <path d="M8.5 13.5s1 1.5 3.5 1.5 3.5-1.5 3.5-1.5" />
+                <line x1="8" y1="3" x2="8" y2="1" />
+                <line x1="16" y1="3" x2="16" y2="1" />
+                <line x1="12" y1="17" x2="12" y2="21" />
+                <line x1="8" y1="21" x2="16" y2="21" />
+            </svg>
+        </button>
+    </div>
+    <div class="tour-overlay hidden" id="tourOverlay"></div>
+    <div class="tour-spotlight hidden" id="tourSpotlight"></div>
+    <div class="tour-balloon hidden" id="tourBalloon">
+        <div class="tour-balloon__header">
+            <span class="tour-balloon__robot">🤖</span>
+            <span class="tour-balloon__step" id="tourStepLabel"></span>
+            <button class="tour-balloon__close" id="tourClose" title="Encerrar tour">✕</button>
+        </div>
+        <div class="tour-balloon__text" id="tourText"></div>
+        <div class="tour-balloon__actions">
+            <button class="tour-nav-btn tour-nav-btn--prev" id="tourPrev">← Anterior</button>
+            <button class="tour-nav-btn tour-nav-btn--next" id="tourNext">Próximo →</button>
+        </div>
+    </div>
 
     <!-- ── Login overlay ──────────────────────────────────────────── -->
     <div class="login-overlay hidden" id="loginOverlay">

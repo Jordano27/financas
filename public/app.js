@@ -1,4 +1,6 @@
 // ── Auth ──────────────────────────────────────────────────────────────────────
+import { FAQ_TREE } from './chatbot-faq.js';
+
 const TOKEN_KEY = 'fin_token';
 
 function getToken() {
@@ -374,6 +376,235 @@ function pctLabel(v) {
   return (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
 }
 
+// ── Chatbot ───────────────────────────────────────────────────────────────────
+function bindChatbot() {
+  const fab = document.getElementById('tourBtn');
+  const win = document.getElementById('chatWindow');
+  const closeBtn = document.getElementById('chatClose');
+
+  fab.addEventListener('click', () => {
+    const isOpen = !win.classList.contains('hidden');
+    if (isOpen) {
+      win.classList.add('hidden');
+    } else {
+      win.classList.remove('hidden');
+      const msgs = document.getElementById('chatMessages');
+      // First open: show welcome node
+      if (msgs.children.length === 0) chatGoto('welcome');
+    }
+  });
+
+  closeBtn.addEventListener('click', () => win.classList.add('hidden'));
+}
+
+function chatAddBubble(text, role) {
+  const msgs = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = `chat-bubble chat-bubble--${role}`;
+  div.textContent = text;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div;
+}
+
+function chatShowTyping() {
+  const msgs = document.getElementById('chatMessages');
+  const el = document.createElement('div');
+  el.className = 'chat-typing';
+  el.id = 'chatTyping';
+  el.innerHTML = '<span></span><span></span><span></span>';
+  msgs.appendChild(el);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function chatRemoveTyping() {
+  document.getElementById('chatTyping')?.remove();
+}
+
+function chatSetOptions(options) {
+  const container = document.getElementById('chatOptions');
+  container.innerHTML = '';
+  options.forEach(opt => {
+    const btn = document.createElement('button');
+    btn.className = 'chat-option-btn';
+    btn.textContent = opt.label;
+    btn.addEventListener('click', () => chatHandleOption(opt));
+    container.appendChild(btn);
+  });
+}
+
+const RESTART_OPTION = { label: '🔄 Reiniciar conversa', next: 'welcome' };
+
+async function chatGoto(nodeId) {
+  const node = FAQ_TREE[nodeId];
+  if (!node) return;
+  chatSetOptions([]); // disable options while typing
+  chatShowTyping();
+  await new Promise(r => setTimeout(r, 650));
+  chatRemoveTyping();
+  chatAddBubble(node.text, 'bot');
+  // Always append restart option except on the welcome screen itself
+  const options = nodeId === 'welcome'
+    ? node.options
+    : [...node.options, RESTART_OPTION];
+  chatSetOptions(options);
+}
+
+async function chatHandleOption(opt) {
+  // Show user's choice as bubble
+  chatAddBubble(opt.label, 'user');
+  chatSetOptions([]); // clear while processing
+
+  if (opt.action === 'start_tour') {
+    // Show bot confirmation and leave restart option visible before closing
+    chatShowTyping();
+    await new Promise(r => setTimeout(r, 600));
+    chatRemoveTyping();
+    chatAddBubble('Tour iniciado! Quando terminar, abra o chat novamente para continuar tirando dúvidas. 😊', 'bot');
+    chatSetOptions([RESTART_OPTION]);
+    await new Promise(r => setTimeout(r, 900));
+    document.getElementById('chatWindow').classList.add('hidden');
+    await new Promise(r => setTimeout(r, 300));
+    startTour();
+    return;
+  }
+
+  if (opt.action && opt.action.startsWith('go_page:')) {
+    navigate(opt.action.split(':')[1]);
+  }
+
+  if (opt.next) {
+    await chatGoto(opt.next);
+  }
+}
+
+// ── Guided Tour ───────────────────────────────────────────────────────────────
+const TOUR_STEPS = [
+  { page: 'dashboard', selector: '.stat-cards', text: 'Os cartões de resumo mostram instantaneamente seu saldo, ganhos, gastos e total investido no mês.' },
+  { page: 'dashboard', selector: '.charts-row', text: 'Os gráficos exibem o histórico dos últimos 6 meses e a distribuição dos seus gastos por categoria.' },
+  { page: 'dashboard', selector: '#recent-list', text: 'Os lançamentos recentes listam as últimas movimentações para você ter controle imediato.' },
+  { page: 'income', selector: '#addIncomeBtn', text: 'Clique aqui para registrar um novo ganho ou receita no mês atual.' },
+  { page: 'income', selector: '#income-table', text: 'Todos os seus ganhos do mês ficam listados aqui com data, categoria e valor.' },
+  { page: 'expense', selector: '#addExpenseBtn', text: 'Use este botão para lançar um novo gasto variável, como compras e despesas do dia a dia.' },
+  { page: 'expense', selector: '#expense-table', text: 'Lista completa dos seus gastos variáveis do mês, organizados por data e categoria.' },
+  { page: 'bills', selector: '#addBillBtn', text: 'Cadastre aqui uma conta fixa que se repete todo mês, como aluguel, internet ou assinatura.' },
+  { page: 'bills', selector: '#bills-grid', text: 'Cada card exibe uma conta fixa com valor, dia de vencimento e status de pagamento do mês.' },
+  { page: 'investments', selector: '#addInvestmentBtn', text: 'Adicione aqui um investimento para acompanhar o crescimento do seu patrimônio ao longo do tempo.' },
+  { page: 'investments', selector: '#investments-table', text: 'Veja todos os seus investimentos com o valor total acumulado e o rendimento obtido.' },
+  { page: 'goals', selector: '#addGoalBtn', text: 'Crie uma nova meta financeira, como guardar para uma viagem, emergência ou conquista pessoal.' },
+  { page: 'goals', selector: '#goals-grid', text: 'Cada meta exibe a barra de progresso e quanto você precisa guardar por mês para atingi-la no prazo.' },
+  { page: 'insights', selector: '.insights-section', text: 'A inteligência financeira projeta seu saldo até o fim do mês e detecta assinaturas recorrentes automaticamente.' },
+  { page: 'reports', selector: '.reports-grid', text: 'Os relatórios exibem comparação com o mês anterior, médias históricas e progresso das metas.' },
+  { page: 'health', selector: '.hmodule-score-card', text: 'A Saúde Financeira aplica a regra 50-30-20 para medir o equilíbrio entre necessidades, desejos e investimentos.' },
+];
+
+const tourState = { active: false, step: 0 };
+
+async function startTour() {
+  tourState.active = true;
+  tourState.step = 0;
+  document.getElementById('tourBtn').style.visibility = 'hidden';
+  document.body.style.overflow = 'hidden';
+  document.body.style.userSelect = 'none';
+  await showTourStep(0);
+}
+
+async function showTourStep(index) {
+  if (!tourState.active) return;
+  if (index < 0 || index >= TOUR_STEPS.length) { endTour(); return; }
+
+  tourState.step = index;
+  const step = TOUR_STEPS[index];
+
+  // Navigate to page if needed
+  if (state.page !== step.page) {
+    navigate(step.page);
+    await new Promise(r => setTimeout(r, 750));
+  }
+
+  // Retry finding element up to 2 times
+  let target = document.querySelector(step.selector);
+  if (!target) {
+    await new Promise(r => setTimeout(r, 500));
+    target = document.querySelector(step.selector);
+  }
+  if (!target) {
+    // Skip silently if element not rendered
+    await showTourStep(index + 1);
+    return;
+  }
+
+  // Scroll into view
+  target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  await new Promise(r => setTimeout(r, 300));
+
+  const rect = target.getBoundingClientRect();
+  const PAD = 8;
+
+  // Spotlight
+  const spotlight = document.getElementById('tourSpotlight');
+  spotlight.classList.remove('hidden');
+  spotlight.style.cssText = `left:${rect.left - PAD}px;top:${rect.top - PAD}px;width:${rect.width + PAD * 2}px;height:${rect.height + PAD * 2}px`;
+
+  // Balloon position
+  const balloon = document.getElementById('tourBalloon');
+  balloon.classList.remove('hidden');
+  balloon.classList.remove('caret-bottom');
+
+  const BALLOON_W = 300;
+  const BALLOON_H = 130;
+  const viewH = window.innerHeight;
+  const viewW = window.innerWidth;
+  const spaceBelow = viewH - rect.bottom - PAD;
+  const spaceAbove = rect.top - PAD;
+  let bTop;
+
+  if (spaceBelow >= BALLOON_H + 16 || spaceBelow >= spaceAbove) {
+    bTop = rect.bottom + PAD + 14;
+  } else {
+    bTop = rect.top - PAD - BALLOON_H - 14;
+    balloon.classList.add('caret-bottom');
+  }
+
+  // Clamp so balloon never leaves the viewport
+  bTop = Math.max(10, Math.min(viewH - BALLOON_H - 10, bTop));
+
+  let bLeft = rect.left + rect.width / 2 - BALLOON_W / 2;
+  bLeft = Math.max(12, Math.min(viewW - BALLOON_W - 12, bLeft));
+
+  balloon.style.cssText += `top:${bTop}px;left:${bLeft}px;width:${BALLOON_W}px`;
+
+  // Content
+  document.getElementById('tourStepLabel').textContent = `Passo ${index + 1} de ${TOUR_STEPS.length}`;
+  document.getElementById('tourText').textContent = step.text;
+
+  const prevBtn = document.getElementById('tourPrev');
+  const nextBtn = document.getElementById('tourNext');
+  prevBtn.disabled = index === 0;
+  nextBtn.textContent = index === TOUR_STEPS.length - 1 ? 'Concluir ✓' : 'Próximo →';
+
+  document.getElementById('tourOverlay').classList.remove('hidden');
+}
+
+function endTour() {
+  tourState.active = false;
+  document.body.style.overflow = '';
+  document.body.style.userSelect = '';
+  document.getElementById('tourOverlay').classList.add('hidden');
+  document.getElementById('tourSpotlight').classList.add('hidden');
+  document.getElementById('tourBalloon').classList.add('hidden');
+  document.getElementById('tourBtn').style.visibility = '';
+  toast('Tour concluído! 🎉', 'success');
+}
+
+function bindTour() {
+  document.getElementById('tourClose').addEventListener('click', endTour);
+  document.getElementById('tourPrev').addEventListener('click', () => showTourStep(tourState.step - 1));
+  document.getElementById('tourNext').addEventListener('click', () => showTourStep(tourState.step + 1));
+  // Swallow all clicks on the overlay — only tour buttons work during tour
+  document.getElementById('tourOverlay').addEventListener('click', e => e.stopPropagation());
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
   await loadCategories();
@@ -388,6 +619,8 @@ async function init() {
   document.getElementById('monthSelect').addEventListener('change', onMonthChange);
   setupUserAvatar();
   applyPlanRestrictions();
+  bindTour();
+  bindChatbot();
   const startPage = getUserPlan() === 'premium' || getTokenPayload()?.role === 'admin' ? 'dashboard' : 'income';
   navigate(startPage);
 }
@@ -473,6 +706,7 @@ const PAGE_TITLES = {
   investments: 'Investimentos',
   goals: 'Metas',
   insights: 'Inteligência & Insights',
+  health: 'Saúde Financeira',
   reports: 'Relatórios'
 };
 
@@ -507,6 +741,7 @@ function renderPage(page) {
     case 'investments': return loadInvestments();
     case 'goals': return loadGoals();
     case 'insights': return loadInsights();
+    case 'health': return loadHealth();
     case 'reports': return loadReports();
   }
 }
@@ -1178,7 +1413,7 @@ function goalProgressColor(pct) {
 function formatGoalDate(isoDate) {
   if (!isoDate) return '';
   const [year, month] = isoDate.split('-');
-  const names = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const names = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
   return `${names[parseInt(month, 10) - 1]} ${year}`;
 }
 
@@ -1588,6 +1823,232 @@ function renderSubscriptionsSection(subs) {
       </div>
       <div class="sub-groups">${groupsHtml}</div>
     </div>`;
+}
+
+// ── Saúde Financeira ──────────────────────────────────────────────────────────
+async function loadHealth() {
+  const el = document.getElementById('health-content');
+  if (!el) return;
+  if (!state.month) { el.innerHTML = emptyState('Selecione um mês para ver a análise.'); return; }
+  el.innerHTML = loader();
+  try {
+    const data = await api('GET', `/api/health/${state.month}`);
+    el.innerHTML = renderHealthModule(data);
+    renderHealthCharts(data);
+  } catch (e) {
+    console.error('[Saúde Financeira]', e);
+    el.innerHTML = emptyState(`Erro ao carregar análise: ${e.message}`);
+  }
+}
+
+function renderHealthModule(data) {
+  const { health, current, ideal, gap, projections, plan, enhancements, history } = data;
+  const { score, label, tips, breakdown } = health;
+  const { totalIncome, totalExpense, totalBills, totalInvested, balance } = current;
+
+  const scoreColor = score >= 85 ? '#22c55e' : score >= 65 ? '#f59e0b' : score >= 40 ? '#f97316' : '#ef4444';
+  const r = 58, circ = 2 * Math.PI * r;
+  const offset = circ * (1 - score / 100);
+
+  const fmtPct = v => v.toFixed(1) + '%';
+  const bar = (actual, target, color, inverse = false) => {
+    const pct = Math.min(100, (actual / (target || 1)) * 100);
+    const ok = inverse ? actual <= target : actual >= target;
+    const barColor = ok ? '#22c55e' : '#ef4444';
+    return `<div class="hbar-wrap"><div class="hbar-fill" style="width:${pct}%;background:${barColor}"></div></div>`;
+  };
+
+  // 50-30-20 breakdown
+  const bd = breakdown || {};
+  const pillars = [
+    { name: 'Necessidades', icon: '🏠', pct: bd.needsPct || 0, target: 50, actual: totalBills, idealAmt: ideal.needs, score: bd.needsScore || 0, weight: '40%', dir: 'lte', label: '≤ 50%' },
+    { name: 'Desejos', icon: '🛍️', pct: bd.wantsPct || 0, target: 30, actual: totalExpense, idealAmt: ideal.wants, score: bd.wantsScore || 0, weight: '30%', dir: 'lte', label: '≤ 30%' },
+    { name: 'Investimentos', icon: '📈', pct: bd.investPct || 0, target: 20, actual: totalInvested, idealAmt: ideal.invest, score: bd.investScore || 0, weight: '30%', dir: 'gte', label: '≥ 20%' },
+  ];
+
+  const pillarCards = pillars.map(p => {
+    const ok = p.dir === 'lte' ? p.pct <= p.target : p.pct >= p.target;
+    const color = ok ? '#22c55e' : '#ef4444';
+    const pctFill = Math.min(100, (p.pct / (p.dir === 'lte' ? p.target * 1.5 : p.target)));
+    return `
+      <div class="hpillar-card">
+        <div class="hpillar-card__top">
+          <span class="hpillar-card__icon">${p.icon}</span>
+          <div>
+            <div class="hpillar-card__name">${p.name}</div>
+            <div class="hpillar-card__meta">Meta: ${p.label} · Peso ${p.weight}</div>
+          </div>
+          <div class="hpillar-card__score" style="color:${color}">${Math.round(p.score)}</div>
+        </div>
+        <div class="hpillar-card__row">
+          <span style="font-size:12px;color:var(--text-3)">Atual: ${fmt(p.actual)} (${fmtPct(p.pct)})</span>
+          <span style="font-size:12px;color:var(--text-3)">Ideal: ${fmt(p.idealAmt)}</span>
+        </div>
+        <div class="hbar-wrap"><div class="hbar-fill" style="width:${pctFill * (p.dir === 'gte' ? (p.pct / p.target) : 1) >= 1 ? '100' : (p.pct / (p.dir === 'lte' ? p.target * 1.5 : p.target) * 100).toFixed(0)}%;background:${color}"></div></div>
+        ${!ok ? `<div class="hpillar-card__gap" style="color:${color}">
+          ${p.dir === 'lte'
+          ? `Reduzir ${fmt(gap[p.name === 'Necessidades' ? 'needs' : 'wants'])}/mês`
+          : `Aumentar ${fmt(gap.invest)}/mês`}
+        </div>` : '<div class="hpillar-card__gap" style="color:#22c55e">✓ Dentro da meta</div>'}
+      </div>`;
+  }).join('');
+
+  // History trend
+  const historyHtml = history.length ? history.map(h => `
+    <div class="hhistory-item">
+      <span class="hhistory-item__month">${fmtMonth(h.month)}</span>
+      <div class="hbar-wrap" style="flex:1"><div class="hbar-fill" style="width:${h.score}%;background:${h.score >= 85 ? '#22c55e' : h.score >= 65 ? '#f59e0b' : '#ef4444'}"></div></div>
+      <span class="hhistory-item__score" style="color:${h.score >= 85 ? '#22c55e' : h.score >= 65 ? '#f59e0b' : '#ef4444'}">${h.score}</span>
+    </div>`).join('') : '<p style="color:var(--text-3);font-size:13px">Sem histórico anterior disponível.</p>';
+
+  // Projection section
+  const projHtml = projections.map(p => `
+    <div class="hproj-row">
+      <span class="hproj-row__label">+${p.month} mês${p.month > 1 ? 'es' : ''}</span>
+      <span class="hproj-row__val" style="color:${p.cumulativeBalance >= 0 ? '#22c55e' : '#ef4444'}">${fmt(p.cumulativeBalance)}</span>
+      <span style="font-size:11px;color:var(--text-3)">${p.cumulativeBalance >= 0 ? 'positivo' : 'negativo'}</span>
+    </div>`).join('');
+
+  // Plan
+  const planHtml = plan.length ? plan.map(p => `
+    <div class="hplan-item hplan-item--${p.impact}">
+      <div class="hplan-item__pillar">${p.pillar} <span class="hplan-item__badge">${p.impact}</span></div>
+      <div class="hplan-item__action">${p.action}</div>
+    </div>`).join('') : '<p style="color:#22c55e;font-size:13px">✅ Parabéns! Você está seguindo a regra 50-30-20.</p>';
+
+  const enhHtml = enhancements.length ? enhancements.map(e =>
+    `<div class="hplan-item hplan-item--enhance">${e}</div>`).join('') : '';
+
+  return `
+    <div class="health-module">
+
+      <!-- Score principal -->
+      <div class="hmodule-score-card">
+        <div class="hmodule-ring-wrap">
+          <svg width="140" height="140">
+            <circle cx="70" cy="70" r="${r}" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="11"/>
+            <circle cx="70" cy="70" r="${r}" fill="none"
+              stroke="${scoreColor}" stroke-width="11"
+              stroke-dasharray="${circ.toFixed(2)}" stroke-dashoffset="${offset.toFixed(2)}"
+              stroke-linecap="round"
+              style="transform:rotate(-90deg);transform-origin:70px 70px;transition:stroke-dashoffset 1s ease"/>
+          </svg>
+          <div class="hmodule-ring-text">
+            <span class="hmodule-ring-score" style="color:${scoreColor}">${score}</span>
+            <span class="hmodule-ring-label">/ 100</span>
+          </div>
+        </div>
+        <div class="hmodule-score-info">
+          <div class="hmodule-score-status" style="color:${scoreColor}">${label}</div>
+          <div class="hmodule-score-method">Regra 50-30-20</div>
+          <div class="hmodule-score-income">Renda: ${fmt(totalIncome)} · Saldo: <span style="color:${balance >= 0 ? '#22c55e' : '#ef4444'}">${fmt(balance)}</span></div>
+          <div class="hmodule-tips">
+            ${tips.map(t => `<div class="hmodule-tip">${t}</div>`).join('')}
+          </div>
+        </div>
+      </div>
+
+      <!-- Pilares 50-30-20 -->
+      <div class="hmodule-section">
+        <div class="hmodule-section__title">📊 Distribuição 50-30-20</div>
+        <div class="hpillar-grid">${pillarCards}</div>
+      </div>
+
+      <!-- Gráfico de distribuição -->
+      <div class="hmodule-section">
+        <div class="hmodule-section__title">📉 Comparação visual com a meta</div>
+        <div class="chart-wrap" style="height:220px"><canvas id="chart-health-bar"></canvas></div>
+      </div>
+
+      <!-- Histórico -->
+      <div class="hmodule-section">
+        <div class="hmodule-section__title">📅 Tendência dos últimos meses</div>
+        <div class="hhistory">${historyHtml}</div>
+      </div>
+
+      <!-- Projeção -->
+      <div class="hmodule-section">
+        <div class="hmodule-section__title">🔮 Projeção — se manter como está</div>
+        <p style="font-size:12.5px;color:var(--text-3);margin-bottom:12px">Saldo acumulado projetado mantendo o ritmo atual de receitas e despesas.</p>
+        <div class="hproj">${projHtml}</div>
+        <div class="chart-wrap" style="height:200px;margin-top:16px"><canvas id="chart-health-proj"></canvas></div>
+      </div>
+
+      <!-- Plano de melhora -->
+      <div class="hmodule-section">
+        <div class="hmodule-section__title">${score < 65 ? '🛠️ Plano de Melhora' : '🚀 Plano de Aprimoramento'}</div>
+        ${planHtml}
+        ${enhHtml}
+      </div>
+
+    </div>`;
+}
+
+function renderHealthCharts(data) {
+  const { current, ideal } = data;
+  const { totalExpense, totalBills, totalInvested, totalIncome } = current;
+
+  // Bar chart: actual vs ideal
+  destroyChart('health-bar');
+  const ctxBar = document.getElementById('chart-health-bar');
+  if (ctxBar) {
+    state.charts['health-bar'] = new Chart(ctxBar.getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: ['Necessidades (50%)', 'Desejos (30%)', 'Investimentos (20%)'],
+        datasets: [
+          { label: 'Ideal', data: [ideal.needs, ideal.wants, ideal.invest], backgroundColor: 'rgba(99,102,241,.45)', borderRadius: 5 },
+          {
+            label: 'Atual', data: [totalBills, totalExpense, totalInvested], backgroundColor: [
+              totalBills <= ideal.needs ? 'rgba(34,197,94,.7)' : 'rgba(239,68,68,.7)',
+              totalExpense <= ideal.wants ? 'rgba(34,197,94,.7)' : 'rgba(239,68,68,.7)',
+              totalInvested >= ideal.invest ? 'rgba(34,197,94,.7)' : 'rgba(239,68,68,.7)'
+            ], borderRadius: 5
+          }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { boxWidth: 10, font: { size: 11 } } },
+          tooltip: { callbacks: { label: ctx => ' ' + fmt(ctx.raw) } }
+        },
+        scales: {
+          x: { grid: { color: 'rgba(255,255,255,.04)' } },
+          y: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { callback: v => 'R$' + (v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v) } }
+        }
+      }
+    });
+  }
+
+  // Projection line chart
+  destroyChart('health-proj');
+  const ctxProj = document.getElementById('chart-health-proj');
+  if (ctxProj) {
+    const labels = data.projections.map(p => `+${p.month}m`);
+    const vals = data.projections.map(p => p.cumulativeBalance);
+    state.charts['health-proj'] = new Chart(ctxProj.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Saldo projetado',
+          data: vals,
+          borderColor: vals[vals.length - 1] >= 0 ? '#22c55e' : '#ef4444',
+          backgroundColor: vals[vals.length - 1] >= 0 ? 'rgba(34,197,94,.1)' : 'rgba(239,68,68,.1)',
+          fill: true, tension: 0.4, pointRadius: 4
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ' ' + fmt(ctx.raw) } } },
+        scales: {
+          x: { grid: { color: 'rgba(255,255,255,.04)' } },
+          y: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { callback: v => 'R$' + (v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v) } }
+        }
+      }
+    });
+  }
 }
 
 // ── Reports ───────────────────────────────────────────────────────────────────
