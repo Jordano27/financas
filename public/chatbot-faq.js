@@ -9,12 +9,56 @@
  */
 export const FAQ_TREE = {
 
-    /* ── Boas-vindas ──────────────────────────────────────────────────────── */
+    /* ── Boas-vindas (Visitante / tela de login) ─────────────────────────── */
+    welcome_guest: {
+        text: 'Olá, sou seu Assistente Virtual!\nCadastre-se no nosso sistema e experimente o poder da organização financeira.',
+        options: [
+            { label: '⭐ Conhecer os planos', next: 'guest_plans' },
+            { label: '🔑 Já tenho conta', next: 'guest_login_hint' }
+        ]
+    },
+    guest_plans: {
+        text: 'Temos dois planos:\n\n🆓 Free — Ganhos, Gastos, Contas Fixas e Investimentos, sem custo.\n\n⭐ Premium (R$ 19,90/mês) — Dashboard, Metas, Inteligência, Saúde Financeira, Relatórios, Tour guiado e Assistente completo.',
+        options: [
+            { label: '📝 Criar minha conta', next: 'guest_register_hint' },
+            { label: '↩️ Voltar', next: 'welcome_guest' }
+        ]
+    },
+    guest_register_hint: {
+        text: 'Para criar sua conta, clique em "Criar conta" na tela de login, escolha seu plano e preencha seus dados. É rápido e gratuito!',
+        options: [
+            { label: '↩️ Voltar', next: 'welcome_guest' }
+        ]
+    },
+    guest_login_hint: {
+        text: 'Basta informar seu e-mail e senha nos campos da tela de login e clicar em "Entrar". Bem-vindo de volta! 😊',
+        options: [
+            { label: '↩️ Voltar', next: 'welcome_guest' }
+        ]
+    },
+
+    /* ── Boas-vindas (Premium) ────────────────────────────────────────────── */
     welcome: {
         text: 'Olá! 👋 Sou o assistente virtual do Finanças. Como posso te ajudar hoje?',
         options: [
             { label: '🗺️ Tour pelo sistema', action: 'start_tour' },
             { label: '💬 Falar com assistente', next: 'main_menu' }
+        ]
+    },
+
+    /* ── Boas-vindas (Free) ───────────────────────────────────────────────── */
+    welcome_free: {
+        text: 'Olá! 👋 Sou o assistente virtual do Finanças. No plano Free você pode fazer um tour pelas funcionalidades disponíveis para você, ou conhecer o que o Premium oferece!',
+        options: [
+            { label: '🗺️ Tour pelo plano Free', action: 'start_tour' },
+            { label: '⭐ Conhecer o Premium', next: 'free_premium_info' }
+        ]
+    },
+    free_premium_info: {
+        text: 'O plano Premium desbloqueia: Dashboard completo, Metas financeiras, Inteligência (projeção + análise de gastos), Saúde Financeira (regra 50-30-20), Relatórios detalhados, Tour guiado e este Assistente virtual completo. Tudo por R$ 19,90/mês!',
+        options: [
+            { label: '🗺️ Tour pelo plano Free', action: 'start_tour' },
+            { label: '↩️ Voltar', next: 'welcome_free' }
         ]
     },
 

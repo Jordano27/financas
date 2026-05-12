@@ -17,6 +17,15 @@
       "category": "Freelance",
       "date": "2026-05-09",
       "createdAt": "2026-05-11T13:22:21.284Z"
+    },
+    {
+      "id": "c7bc4195-e825-44d0-9bdb-ea9b92d1993b",
+      "type": "expense",
+      "description": "pastel",
+      "amount": 10,
+      "category": "Alimentação",
+      "date": "2026-05-12",
+      "createdAt": "2026-05-12T00:53:55.485Z"
     }
   ],
   "bills": [

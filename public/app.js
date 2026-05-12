@@ -181,11 +181,10 @@ function applyPlanRestrictions() {
   const isPremium = plan === 'premium' || payload?.role === 'admin';
 
   // Hide nav items entirely for free users
-  document.querySelectorAll('[data-page="dashboard"]').forEach(btn => {
-    btn.classList.toggle('hidden', !isPremium);
-  });
-  document.querySelectorAll('[data-page="reports"]').forEach(btn => {
-    btn.classList.toggle('hidden', !isPremium);
+  ['dashboard', 'reports', 'goals', 'insights', 'health'].forEach(page => {
+    document.querySelectorAll(`[data-page="${page}"]`).forEach(btn => {
+      btn.classList.toggle('hidden', !isPremium);
+    });
   });
 
   // Show/hide export button
@@ -229,6 +228,10 @@ function bindLogin() {
         return;
       }
       hideLoginOverlay();
+      // Reset chatbot so login-screen conversation doesn't carry over
+      document.getElementById('chatMessages').innerHTML = '';
+      document.getElementById('chatOptions').innerHTML = '';
+      document.getElementById('chatWindow').classList.add('hidden');
       await init();
     } catch (err) {
       errEl.textContent = err.message;
@@ -295,6 +298,10 @@ function bindLogin() {
     state.charts = {};
     state.month = '';
     state.months = [];
+    // Reset and close chatbot
+    document.getElementById('chatMessages').innerHTML = '';
+    document.getElementById('chatOptions').innerHTML = '';
+    document.getElementById('chatWindow').classList.add('hidden');
     showLoginOverlay();
   });
 
@@ -378,9 +385,13 @@ function pctLabel(v) {
 
 // ── Chatbot ───────────────────────────────────────────────────────────────────
 function bindChatbot() {
+  if (bindChatbot._bound) return;
+  bindChatbot._bound = true;
+
   const fab = document.getElementById('tourBtn');
   const win = document.getElementById('chatWindow');
   const closeBtn = document.getElementById('chatClose');
+  const endBtn = document.getElementById('chatEnd');
 
   fab.addEventListener('click', () => {
     const isOpen = !win.classList.contains('hidden');
@@ -389,12 +400,28 @@ function bindChatbot() {
     } else {
       win.classList.remove('hidden');
       const msgs = document.getElementById('chatMessages');
-      // First open: show welcome node
-      if (msgs.children.length === 0) chatGoto('welcome');
+      if (msgs.children.length === 0) {
+        // Check if we're on the login/register screen
+        const onLoginScreen = !document.getElementById('loginOverlay').classList.contains('hidden');
+        if (onLoginScreen) {
+          chatGoto('welcome_guest');
+        } else {
+          const payload = getTokenPayload();
+          const isPremium = getUserPlan() === 'premium' || payload?.role === 'admin';
+          chatGoto(isPremium ? 'welcome' : 'welcome_free');
+        }
+      }
     }
   });
 
   closeBtn.addEventListener('click', () => win.classList.add('hidden'));
+
+  endBtn.addEventListener('click', () => {
+    // Reset conversation and close
+    document.getElementById('chatMessages').innerHTML = '';
+    document.getElementById('chatOptions').innerHTML = '';
+    win.classList.add('hidden');
+  });
 }
 
 function chatAddBubble(text, role) {
@@ -433,9 +460,19 @@ function chatSetOptions(options) {
   });
 }
 
-const RESTART_OPTION = { label: '🔄 Reiniciar conversa', next: 'welcome' };
+const RESTART_OPTION = { label: '🔄 Reiniciar conversa', next: '__welcome__' };
+
+function getWelcomeNode() {
+  const onLoginScreen = !document.getElementById('loginOverlay').classList.contains('hidden');
+  if (onLoginScreen) return 'welcome_guest';
+  const payload = getTokenPayload();
+  const isPremium = getUserPlan() === 'premium' || payload?.role === 'admin';
+  return isPremium ? 'welcome' : 'welcome_free';
+}
 
 async function chatGoto(nodeId) {
+  // Resolve the dynamic welcome sentinel
+  if (nodeId === '__welcome__') nodeId = getWelcomeNode();
   const node = FAQ_TREE[nodeId];
   if (!node) return;
   chatSetOptions([]); // disable options while typing
@@ -443,10 +480,9 @@ async function chatGoto(nodeId) {
   await new Promise(r => setTimeout(r, 650));
   chatRemoveTyping();
   chatAddBubble(node.text, 'bot');
-  // Always append restart option except on the welcome screen itself
-  const options = nodeId === 'welcome'
-    ? node.options
-    : [...node.options, RESTART_OPTION];
+  // Append restart option on all nodes except the welcome screens themselves
+  const isWelcome = nodeId === 'welcome' || nodeId === 'welcome_free' || nodeId === 'welcome_guest';
+  const options = isWelcome ? node.options : [...node.options, RESTART_OPTION];
   chatSetOptions(options);
 }
 
@@ -479,30 +515,67 @@ async function chatHandleOption(opt) {
 }
 
 // ── Guided Tour ───────────────────────────────────────────────────────────────
+const TOUR_STEPS_FREE = [
+  // ── Receitas ──────────────────────────────────────────────────────────────
+  { page: 'income', selector: '#addIncomeBtn', text: 'Clique aqui para registrar um novo ganho ou receita no mês atual.' },
+  { page: 'income', selector: '#income-table', text: 'Todos os seus ganhos do mês ficam listados aqui com data, categoria e valor.' },
+  // ── Gastos ───────────────────────────────────────────────────────────────
+  { page: 'expense', selector: '#addExpenseBtn', text: 'Use este botão para lançar um novo gasto variável, como compras e despesas do dia a dia.' },
+  { page: 'expense', selector: '#expense-table', text: 'Lista completa dos seus gastos variáveis do mês, organizados por data e categoria.' },
+  // ── Contas Fixas ─────────────────────────────────────────────────────────
+  { page: 'bills', selector: '#addBillBtn', text: 'Cadastre aqui uma conta fixa que se repete todo mês, como aluguel, internet ou assinatura.' },
+  { page: 'bills', selector: '#bills-grid', text: 'Cada card exibe uma conta fixa com valor, dia de vencimento e status de pagamento do mês.' },
+  // ── Investimentos ─────────────────────────────────────────────────────────
+  { page: 'investments', selector: '#addInvestmentBtn', text: 'Adicione aqui um investimento para acompanhar o crescimento do seu patrimônio ao longo do tempo.' },
+  { page: 'investments', selector: '#investments-table', text: 'Veja todos os seus investimentos com o valor total acumulado e o rendimento obtido.' },
+];
+
 const TOUR_STEPS = [
+  // ── Dashboard ──────────────────────────────────────────────────────────────
   { page: 'dashboard', selector: '.stat-cards', text: 'Os cartões de resumo mostram instantaneamente seu saldo, ganhos, gastos e total investido no mês.' },
   { page: 'dashboard', selector: '.charts-row', text: 'Os gráficos exibem o histórico dos últimos 6 meses e a distribuição dos seus gastos por categoria.' },
   { page: 'dashboard', selector: '#recent-list', text: 'Os lançamentos recentes listam as últimas movimentações para você ter controle imediato.' },
+  // ── Receitas ───────────────────────────────────────────────────────────────
   { page: 'income', selector: '#addIncomeBtn', text: 'Clique aqui para registrar um novo ganho ou receita no mês atual.' },
   { page: 'income', selector: '#income-table', text: 'Todos os seus ganhos do mês ficam listados aqui com data, categoria e valor.' },
+  // ── Gastos ─────────────────────────────────────────────────────────────────
   { page: 'expense', selector: '#addExpenseBtn', text: 'Use este botão para lançar um novo gasto variável, como compras e despesas do dia a dia.' },
   { page: 'expense', selector: '#expense-table', text: 'Lista completa dos seus gastos variáveis do mês, organizados por data e categoria.' },
+  // ── Contas Fixas ───────────────────────────────────────────────────────────
   { page: 'bills', selector: '#addBillBtn', text: 'Cadastre aqui uma conta fixa que se repete todo mês, como aluguel, internet ou assinatura.' },
   { page: 'bills', selector: '#bills-grid', text: 'Cada card exibe uma conta fixa com valor, dia de vencimento e status de pagamento do mês.' },
+  // ── Investimentos ──────────────────────────────────────────────────────────
   { page: 'investments', selector: '#addInvestmentBtn', text: 'Adicione aqui um investimento para acompanhar o crescimento do seu patrimônio ao longo do tempo.' },
   { page: 'investments', selector: '#investments-table', text: 'Veja todos os seus investimentos com o valor total acumulado e o rendimento obtido.' },
+  // ── Metas ──────────────────────────────────────────────────────────────────
   { page: 'goals', selector: '#addGoalBtn', text: 'Crie uma nova meta financeira, como guardar para uma viagem, emergência ou conquista pessoal.' },
   { page: 'goals', selector: '#goals-grid', text: 'Cada meta exibe a barra de progresso e quanto você precisa guardar por mês para atingi-la no prazo.' },
-  { page: 'insights', selector: '.insights-section', text: 'A inteligência financeira projeta seu saldo até o fim do mês e detecta assinaturas recorrentes automaticamente.' },
-  { page: 'reports', selector: '.reports-grid', text: 'Os relatórios exibem comparação com o mês anterior, médias históricas e progresso das metas.' },
-  { page: 'health', selector: '.hmodule-score-card', text: 'A Saúde Financeira aplica a regra 50-30-20 para medir o equilíbrio entre necessidades, desejos e investimentos.' },
+  // ── Inteligência ───────────────────────────────────────────────────────────
+  { page: 'insights', selector: '#insights-forecast', text: 'A projeção de saldo analisa seus gastos diários e estima como você vai fechar o mês.' },
+  { page: 'insights', selector: '#insights-spending', text: 'A análise de gastos agrupa todos os seus gastos e contas fixas por categoria, mostrando onde vai mais dinheiro.' },
+  // ── Saúde Financeira ───────────────────────────────────────────────────────
+  { page: 'health', selector: '#health-score', text: 'O score de saúde financeira vai de 0 a 100 e resume o equilíbrio da sua vida financeira com base na regra 50-30-20.' },
+  { page: 'health', selector: '#health-pillars', text: 'Cada pilar mostra quanto você usa em necessidades, desejos e investimentos comparado à meta ideal.' },
+  { page: 'health', selector: '#health-history', text: 'O histórico exibe a evolução do seu score nos últimos meses para você acompanhar sua melhora.' },
+  { page: 'health', selector: '#health-proj', text: 'A projeção calcula como seu saldo acumulado se comportará nos próximos meses se mantiver o ritmo atual.' },
+  { page: 'health', selector: '#health-plan', text: 'O plano de ação traz dicas personalizadas para melhorar os pilares que estão abaixo da meta.' },
+  // ── Relatórios ─────────────────────────────────────────────────────────────
+  { page: 'reports', selector: '.reports-grid', text: 'O resumo do mês exibe todos os totais — ganhos, gastos, contas fixas, investimentos e saldo.' },
+  { page: 'reports', selector: '#report-compliance', text: 'O painel de adimplência mostra quantas contas fixas foram pagas e o valor em aberto do mês.' },
+  { page: 'reports', selector: '#report-goals', text: 'Aqui você vê o progresso de todas as suas metas com projeção de quanto economizar por mês.' },
+  { page: 'reports', selector: '#report-spending', text: 'A análise de gastos no relatório consolida todos os gastos e contas fixas agrupados por categoria.' },
+  { page: 'reports', selector: '#report-comparison', text: 'A comparação com o mês anterior mostra a variação em cada categoria para identificar tendências.' },
+  { page: 'reports', selector: '#report-chart', text: 'O gráfico visual facilita a comparação lado a lado entre o mês atual e o anterior.' },
 ];
 
-const tourState = { active: false, step: 0 };
+const tourState = { active: false, step: 0, steps: TOUR_STEPS };
 
 async function startTour() {
+  const payload = getTokenPayload();
+  const isPremium = getUserPlan() === 'premium' || payload?.role === 'admin';
   tourState.active = true;
   tourState.step = 0;
+  tourState.steps = isPremium ? TOUR_STEPS : TOUR_STEPS_FREE;
   document.getElementById('tourBtn').style.visibility = 'hidden';
   document.body.style.overflow = 'hidden';
   document.body.style.userSelect = 'none';
@@ -511,25 +584,26 @@ async function startTour() {
 
 async function showTourStep(index) {
   if (!tourState.active) return;
-  if (index < 0 || index >= TOUR_STEPS.length) { endTour(); return; }
+  if (index < 0 || index >= tourState.steps.length) { endTour(); return; }
 
   tourState.step = index;
-  const step = TOUR_STEPS[index];
+  const step = tourState.steps[index];
 
   // Navigate to page if needed
   if (state.page !== step.page) {
     navigate(step.page);
-    await new Promise(r => setTimeout(r, 750));
   }
 
-  // Retry finding element up to 2 times
-  let target = document.querySelector(step.selector);
-  if (!target) {
-    await new Promise(r => setTimeout(r, 500));
+  // Poll for element (checks every 80ms, up to 2s)
+  let target = null;
+  const deadline = Date.now() + 2000;
+  while (!target && Date.now() < deadline) {
     target = document.querySelector(step.selector);
+    if (!target) await new Promise(r => setTimeout(r, 80));
   }
+
   if (!target) {
-    // Skip silently if element not rendered
+    // Skip silently if element never rendered
     await showTourStep(index + 1);
     return;
   }
@@ -572,16 +646,16 @@ async function showTourStep(index) {
   let bLeft = rect.left + rect.width / 2 - BALLOON_W / 2;
   bLeft = Math.max(12, Math.min(viewW - BALLOON_W - 12, bLeft));
 
-  balloon.style.cssText += `top:${bTop}px;left:${bLeft}px;width:${BALLOON_W}px`;
+  balloon.style.cssText = `top:${bTop}px;left:${bLeft}px;width:${BALLOON_W}px`;
 
   // Content
-  document.getElementById('tourStepLabel').textContent = `Passo ${index + 1} de ${TOUR_STEPS.length}`;
+  document.getElementById('tourStepLabel').textContent = `Passo ${index + 1} de ${tourState.steps.length}`;
   document.getElementById('tourText').textContent = step.text;
 
   const prevBtn = document.getElementById('tourPrev');
   const nextBtn = document.getElementById('tourNext');
   prevBtn.disabled = index === 0;
-  nextBtn.textContent = index === TOUR_STEPS.length - 1 ? 'Concluir ✓' : 'Próximo →';
+  nextBtn.textContent = index === tourState.steps.length - 1 ? 'Concluir ✓' : 'Próximo →';
 
   document.getElementById('tourOverlay').classList.remove('hidden');
 }
@@ -591,13 +665,21 @@ function endTour() {
   document.body.style.overflow = '';
   document.body.style.userSelect = '';
   document.getElementById('tourOverlay').classList.add('hidden');
-  document.getElementById('tourSpotlight').classList.add('hidden');
-  document.getElementById('tourBalloon').classList.add('hidden');
+  const spotlight = document.getElementById('tourSpotlight');
+  spotlight.classList.add('hidden');
+  spotlight.style.cssText = '';
+  const balloon = document.getElementById('tourBalloon');
+  balloon.classList.add('hidden');
+  balloon.classList.remove('caret-bottom');
+  balloon.style.cssText = '';
   document.getElementById('tourBtn').style.visibility = '';
   toast('Tour concluído! 🎉', 'success');
 }
 
 function bindTour() {
+  if (bindTour._bound) return;
+  bindTour._bound = true;
+
   document.getElementById('tourClose').addEventListener('click', endTour);
   document.getElementById('tourPrev').addEventListener('click', () => showTourStep(tourState.step - 1));
   document.getElementById('tourNext').addEventListener('click', () => showTourStep(tourState.step + 1));
@@ -627,6 +709,7 @@ async function init() {
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 bindLogin();
+bindChatbot(); // available on login screen too
 if (getToken()) {
   init().catch(() => showLoginOverlay());
 } else {
@@ -1727,7 +1810,7 @@ function renderForecastSection(f) {
   const progressColor = progressPct >= 90 ? '#ef4444' : progressPct >= 70 ? '#f59e0b' : '#22c55e';
 
   return `
-    <div class="insights-section">
+    <div class="insights-section" id="insights-forecast">
       <div class="insights-section__title">
         <svg viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
         Projeção de Saldo — ${fmtMonth(state.month)}
@@ -1773,41 +1856,65 @@ function renderSubscriptionsSection(subs) {
 
   if (groupNames.length === 0) {
     return `
-      <div class="insights-section">
+      <div class="insights-section" id="insights-spending">
         <div class="insights-section__title">
           <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-          Análise de Assinaturas
+          Análise de Gastos
         </div>
-        ${emptyState('Nenhuma assinatura identificada. As assinaturas são detectadas automaticamente a partir das suas contas fixas e gastos.')}
+        ${emptyState('Nenhum gasto ou conta fixa registrado neste mês.')}
       </div>`;
   }
 
-  const ICONS = {
-    'Streamings': '🎥',
-    'IAs': '🤖',
-    'Jogos': '🎮',
-    'Cloud & Software': '☁️',
-    'Saúde & Fitness': '🏋️',
-    'Notícias & Educação': '📚',
-    'Outros': '📦'
+  const CAT_ICONS = {
+    // Gastos variáveis
+    'Alimentação': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/></svg>`,
+    'Transporte': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 4v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>`,
+    'Moradia': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
+    'Saúde': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`,
+    'Educação': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`,
+    'Lazer': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="15" y1="13" x2="15.01" y2="13" stroke-width="3"/><line x1="18" y1="11" x2="18.01" y2="11" stroke-width="3"/></svg>`,
+    'Vestuário': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.38 3.46L16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.57a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.57a2 2 0 0 0-1.34-2.23z"/></svg>`,
+    // Contas fixas
+    'Água': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>`,
+    'Luz': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
+    'Internet': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>`,
+    'Telefone': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.67 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.58 1.2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 8.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>`,
+    'Aluguel': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6M15.5 7.5l2 2"/></svg>`,
+    'Condomínio': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/><line x1="8" y1="6" x2="8.01" y2="6" stroke-width="3"/><line x1="12" y1="6" x2="12.01" y2="6" stroke-width="3"/><line x1="16" y1="6" x2="16.01" y2="6" stroke-width="3"/><line x1="8" y1="10" x2="8.01" y2="10" stroke-width="3"/><line x1="12" y1="10" x2="12.01" y2="10" stroke-width="3"/><line x1="16" y1="10" x2="16.01" y2="10" stroke-width="3"/><line x1="8" y1="14" x2="8.01" y2="14" stroke-width="3"/><line x1="16" y1="14" x2="16.01" y2="14" stroke-width="3"/></svg>`,
+    'Streaming': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>`,
+    'Cartão de Crédito': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>`,
+    'Academia': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="4" cy="12" r="2"/><circle cx="20" cy="12" r="2"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="8" y1="9" x2="8" y2="15"/><line x1="16" y1="9" x2="16" y2="15"/></svg>`,
+    'Seguro': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+    'Outros': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>`,
   };
+  const DEFAULT_CAT_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`;
 
   const groupsHtml = groupNames.map((name, idx) => {
-    const items = groups[name];
-    const groupTotal = items.reduce((s, i) => s + i.amount, 0);
-    const bodyId = `sub-group-body-${idx}`;
-    const rows = items.map(item => `
-      <div class="sub-item">
-        <span class="sub-item__name">${esc(item.name)}</span>
-        <span class="sub-item__amount">${fmt(item.amount)}/mês</span>
-      </div>`).join('');
+    const g = groups[name];
+    const items = Array.isArray(g) ? g : (g.items || []);
+    const groupTotal = typeof g.total === 'number' ? g.total : items.reduce((s, i) => s + i.amount, 0);
+    const bodyId = `spend-group-body-${idx}`;
+    const rows = items
+      .slice().sort((a, b) => b.amount - a.amount)
+      .map(item => {
+        const pct = groupTotal > 0 ? (item.amount / groupTotal * 100).toFixed(1) : '0.0';
+        const tag = item.source === 'conta_fixa'
+          ? `<span class="spend-tag spend-tag--bill">Fixa</span>`
+          : `<span class="spend-tag spend-tag--exp">Variável</span>`;
+        return `
+          <div class="sub-item">
+            <span class="sub-item__name">${esc(item.name)} ${tag}</span>
+            <span class="sub-item__pct">${pct}%</span>
+            <span class="sub-item__amount">${fmt(item.amount)}</span>
+          </div>`;
+      }).join('');
     return `
       <div class="sub-group">
         <button class="sub-group__header" data-sub-toggle="${bodyId}" type="button">
-          <span class="sub-group__icon">${ICONS[name] || '📦'}</span>
+          <span class="sub-group__icon">${CAT_ICONS[name] || DEFAULT_CAT_ICON}</span>
           <span class="sub-group__name">${esc(name)}</span>
           <span class="sub-group__count">${items.length}</span>
-          <span class="sub-group__total">${fmt(groupTotal)}/mês</span>
+          <span class="sub-group__total">${fmt(groupTotal)}</span>
           <svg class="sub-group__chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
         <div class="sub-group__items" id="${bodyId}" hidden>${rows}</div>
@@ -1815,11 +1922,11 @@ function renderSubscriptionsSection(subs) {
   }).join('');
 
   return `
-    <div class="insights-section">
+    <div class="insights-section" id="insights-spending">
       <div class="insights-section__title">
-        <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-        Análise de Assinaturas
-        <span class="insights-section__badge">${fmt(subs.total)}/mês</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        Análise de Gastos
+        <span class="insights-section__badge">${fmt(subs.total)} total</span>
       </div>
       <div class="sub-groups">${groupsHtml}</div>
     </div>`;
@@ -1923,7 +2030,7 @@ function renderHealthModule(data) {
     <div class="health-module">
 
       <!-- Score principal -->
-      <div class="hmodule-score-card">
+      <div class="hmodule-score-card" id="health-score">
         <div class="hmodule-ring-wrap">
           <svg width="140" height="140">
             <circle cx="70" cy="70" r="${r}" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="11"/>
@@ -1949,25 +2056,25 @@ function renderHealthModule(data) {
       </div>
 
       <!-- Pilares 50-30-20 -->
-      <div class="hmodule-section">
+      <div class="hmodule-section" id="health-pillars">
         <div class="hmodule-section__title">📊 Distribuição 50-30-20</div>
         <div class="hpillar-grid">${pillarCards}</div>
       </div>
 
       <!-- Gráfico de distribuição -->
-      <div class="hmodule-section">
+      <div class="hmodule-section" id="health-chart-sect">
         <div class="hmodule-section__title">📉 Comparação visual com a meta</div>
         <div class="chart-wrap" style="height:220px"><canvas id="chart-health-bar"></canvas></div>
       </div>
 
       <!-- Histórico -->
-      <div class="hmodule-section">
+      <div class="hmodule-section" id="health-history">
         <div class="hmodule-section__title">📅 Tendência dos últimos meses</div>
         <div class="hhistory">${historyHtml}</div>
       </div>
 
       <!-- Projeção -->
-      <div class="hmodule-section">
+      <div class="hmodule-section" id="health-proj">
         <div class="hmodule-section__title">🔮 Projeção — se manter como está</div>
         <p style="font-size:12.5px;color:var(--text-3);margin-bottom:12px">Saldo acumulado projetado mantendo o ritmo atual de receitas e despesas.</p>
         <div class="hproj">${projHtml}</div>
@@ -1975,7 +2082,7 @@ function renderHealthModule(data) {
       </div>
 
       <!-- Plano de melhora -->
-      <div class="hmodule-section">
+      <div class="hmodule-section" id="health-plan">
         <div class="hmodule-section__title">${score < 65 ? '🛠️ Plano de Melhora' : '🚀 Plano de Aprimoramento'}</div>
         ${planHtml}
         ${enhHtml}
@@ -2088,7 +2195,7 @@ function renderReportGoals(goals) {
   }).join('');
 
   return `
-    <div class="card" style="margin-bottom:20px">
+    <div class="card" id="report-goals" style="margin-bottom:20px">
       <div class="card-header">
         <span class="card-title">Metas</span>
         <span style="font-size:12px;color:var(--text-3)">${done} concluída${done !== 1 ? 's' : ''} · ${inProgress} em andamento</span>
@@ -2118,41 +2225,42 @@ function renderReportSubscriptions(subs) {
   if (!subs || !subs.groups || Object.keys(subs.groups).length === 0) return '';
   const groups = subs.groups;
   const groupNames = Object.keys(groups);
-  const ICONS = {
-    'Streamings': '🎥', 'IAs': '🤖', 'Jogos': '🎮',
-    'Cloud & Software': '☁️', 'Saúde & Fitness': '🏋️',
-    'Notícias & Educação': '📚', 'Outros': '📦'
-  };
 
   const rows = groupNames.map(name => {
-    const items = groups[name];
-    const groupTotal = items.reduce((s, i) => s + i.amount, 0);
-    const subRows = items.map(item => `
+    const g = groups[name];
+    const items = Array.isArray(g) ? g : (g.items || []);
+    const groupTotal = typeof g.total === 'number' ? g.total : items.reduce((s, i) => s + i.amount, 0);
+    const subRows = items.map(item => {
+      const sourceLabel = item.source === 'conta_fixa' ? 'Fixa' : 'Variável';
+      return `
       <tr style="opacity:.8">
-        <td style="padding-left:28px;font-size:12px;color:var(--text-2)">${ICONS[name] || '📦'} ${esc(item.name)}</td>
+        <td style="padding-left:28px;font-size:12px;color:var(--text-2)">${esc(item.name)}
+          <span style="font-size:10px;padding:1px 5px;border-radius:99px;margin-left:4px;background:${item.source === 'conta_fixa' ? 'rgba(251,191,36,.15)' : 'rgba(248,113,113,.15)'};color:${item.source === 'conta_fixa' ? '#fbbf24' : '#f87171'}">${sourceLabel}</span>
+        </td>
         <td style="font-size:12px;color:var(--text-3)">${esc(name)}</td>
-        <td style="font-size:12px">${fmt(item.amount)}/mês</td>
-        <td style="font-size:12px">${fmt(item.amount * 12)}/ano</td>
-      </tr>`).join('');
+        <td style="font-size:12px">${fmt(item.amount)}</td>
+        <td style="font-size:12px;color:var(--text-3)">—</td>
+      </tr>`;
+    }).join('');
     return `
       <tr style="font-weight:600">
         <td>${esc(name)}</td>
-        <td style="color:var(--text-3);font-size:12px">${items.length} assinatura${items.length !== 1 ? 's' : ''}</td>
-        <td>${fmt(groupTotal)}/mês</td>
-        <td style="color:var(--text-3)">${fmt(groupTotal * 12)}/ano</td>
+        <td style="color:var(--text-3);font-size:12px">${items.length} item${items.length !== 1 ? 's' : ''}</td>
+        <td>${fmt(groupTotal)}</td>
+        <td style="color:var(--text-3)">—</td>
       </tr>${subRows}`;
   }).join('');
 
   return `
-    <div class="card" style="margin-bottom:20px">
+    <div class="card" id="report-spending" style="margin-bottom:20px">
       <div class="card-header">
-        <span class="card-title">Assinaturas Recorrentes</span>
-        <span style="font-size:12px;font-weight:700;color:var(--expense)">${fmt(subs.total)}/mês · ${fmt(subs.total * 12)}/ano</span>
+        <span class="card-title">Análise de Gastos</span>
+        <span style="font-size:12px;font-weight:700;color:var(--expense)">${fmt(subs.total)} total</span>
       </div>
       <div style="overflow-x:auto">
         <table class="data-table" style="font-size:13px">
           <thead>
-            <tr><th>Categoria / Serviço</th><th>Qtd</th><th>Mensal</th><th>Anual</th></tr>
+            <tr><th>Categoria / Descrição</th><th>Qtd</th><th>Valor</th><th></th></tr>
           </thead>
           <tbody>${rows}</tbody>
         </table>
@@ -2163,37 +2271,38 @@ function renderReportSubscriptions(subs) {
 async function loadReports() {
   const el = document.getElementById('reports-content');
   el.innerHTML = loader();
+  try {
 
-  const [stats, cmp, avgs, goals, insights] = await Promise.all([
-    api('GET', `/api/stats/${state.month}`),
-    api('GET', `/api/comparison/${state.month}`),
-    api('GET', '/api/averages'),
-    api('GET', '/api/goals').catch(() => []),
-    api('GET', `/api/insights/${state.month}`).catch(() => null)
-  ]);
+    const [stats, cmp, avgs, goals, insights] = await Promise.all([
+      api('GET', `/api/stats/${state.month}`),
+      api('GET', `/api/comparison/${state.month}`),
+      api('GET', '/api/averages'),
+      api('GET', '/api/goals').catch(() => []),
+      api('GET', `/api/insights/${state.month}`).catch(() => null)
+    ]);
 
-  const activeBills = (stats.bills || []).filter(b => b.active);
-  const todayR = new Date();
-  const currentYMR = `${todayR.getFullYear()}-${String(todayR.getMonth() + 1).padStart(2, '0')}`;
-  const overdueBillsR = activeBills.filter(b => {
-    const isPaid = (b.paidMonths || []).includes(state.month);
-    if (isPaid) return false;
-    if (state.month < currentYMR) return true;
-    if (state.month > currentYMR) return false;
-    return todayR.getDate() > b.dueDay;
-  });
-  const paidBillsR = activeBills.filter(b => (b.paidMonths || []).includes(state.month));
-  const totalCountR = activeBills.length;
-  const unpaidCountR = overdueBillsR.length;
-  const unpaidValueR = overdueBillsR.reduce((s, b) => s + b.amount, 0);
-  const unpaidPctR = totalCountR > 0 ? ((unpaidCountR / totalCountR) * 100).toFixed(1) : '0.0';
-  const defaultColorR = unpaidCountR === 0 ? 'var(--income)' : Number(unpaidPctR) >= 50 ? 'var(--expense)' : 'var(--bills)';
-  const paidCountR = paidBillsR.length;
-  const paidValueR = paidBillsR.reduce((s, b) => s + b.amount, 0);
-  const paidPctR = totalCountR > 0 ? ((paidCountR / totalCountR) * 100).toFixed(1) : '0.0';
-  const complianceColorR = paidCountR === totalCountR && totalCountR > 0 ? 'var(--income)' : Number(paidPctR) >= 50 ? 'var(--bills)' : 'var(--expense)';
+    const activeBills = (stats.bills || []).filter(b => b.active);
+    const todayR = new Date();
+    const currentYMR = `${todayR.getFullYear()}-${String(todayR.getMonth() + 1).padStart(2, '0')}`;
+    const overdueBillsR = activeBills.filter(b => {
+      const isPaid = (b.paidMonths || []).includes(state.month);
+      if (isPaid) return false;
+      if (state.month < currentYMR) return true;
+      if (state.month > currentYMR) return false;
+      return todayR.getDate() > b.dueDay;
+    });
+    const paidBillsR = activeBills.filter(b => (b.paidMonths || []).includes(state.month));
+    const totalCountR = activeBills.length;
+    const unpaidCountR = overdueBillsR.length;
+    const unpaidValueR = overdueBillsR.reduce((s, b) => s + b.amount, 0);
+    const unpaidPctR = totalCountR > 0 ? ((unpaidCountR / totalCountR) * 100).toFixed(1) : '0.0';
+    const defaultColorR = unpaidCountR === 0 ? 'var(--income)' : Number(unpaidPctR) >= 50 ? 'var(--expense)' : 'var(--bills)';
+    const paidCountR = paidBillsR.length;
+    const paidValueR = paidBillsR.reduce((s, b) => s + b.amount, 0);
+    const paidPctR = totalCountR > 0 ? ((paidCountR / totalCountR) * 100).toFixed(1) : '0.0';
+    const complianceColorR = paidCountR === totalCountR && totalCountR > 0 ? 'var(--income)' : Number(paidPctR) >= 50 ? 'var(--bills)' : 'var(--expense)';
 
-  el.innerHTML = `
+    el.innerHTML = `
     <div class="reports-grid">
       ${renderHealthCard(stats.health)}
       <div class="card">
@@ -2212,7 +2321,7 @@ async function loadReports() {
       </div>
     </div>
 
-    <div class="card" style="margin-bottom:20px">
+    <div class="card" id="report-compliance" style="margin-bottom:20px">
       <div class="card-header"><span class="card-title">Adimplência &amp; Inadimplência — ${fmtMonth(state.month)}</span></div>
       <table class="cmp-table">
         <tbody>
@@ -2246,7 +2355,7 @@ async function loadReports() {
     ${renderReportGoals(goals)}
     ${insights ? renderReportSubscriptions(insights.subscriptions) : ''}
 
-    <div class="card" style="margin-bottom:20px">
+    <div class="card" id="report-comparison" style="margin-bottom:20px">
       <div class="card-header">
         <span class="card-title">Comparação com mês anterior</span>
         <span style="font-size:12px;color:var(--text-3)">${fmtMonth(cmp.previous.month)} → ${fmtMonth(cmp.current.month)}</span>
@@ -2263,47 +2372,55 @@ async function loadReports() {
       ${renderAveragesTable(avgs)}
     </div>` : ''}
 
-    <div class="card">
+    <div class="card" id="report-chart">
       <div class="card-header"><span class="card-title">Comparação visual</span></div>
       <div class="chart-wrap"><canvas id="chart-cmp"></canvas></div>
     </div>
   `;
 
-  // Render comparison bar chart
-  destroyChart('cmp');
-  const ctx = document.getElementById('chart-cmp').getContext('2d');
-  const { current: c, previous: p } = cmp;
-  state.charts.cmp = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: ['Ganhos', 'Gastos Variáveis', 'Contas Fixas', 'Saldo'],
-      datasets: [
-        {
-          label: fmtMonth(p.month),
-          data: [p.totalIncome, p.totalExpense, p.totalBills, p.balance],
-          backgroundColor: 'rgba(129,140,248,.5)',
-          borderRadius: 5
-        },
-        {
-          label: fmtMonth(c.month),
-          data: [c.totalIncome, c.totalExpense, c.totalBills, c.balance],
-          backgroundColor: 'rgba(52,211,153,.65)',
-          borderRadius: 5
-        }
-      ]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { labels: { boxWidth: 10, font: { size: 11 } } },
-        tooltip: { callbacks: { label: ctx => ' ' + fmt(ctx.raw) } }
+    // Render comparison bar chart
+    destroyChart('cmp');
+    const ctx = document.getElementById('chart-cmp').getContext('2d');
+    const { current: c, previous: p } = cmp;
+    state.charts.cmp = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['Ganhos', 'Gastos Variáveis', 'Contas Fixas', 'Saldo'],
+        datasets: [
+          {
+            label: fmtMonth(p.month),
+            data: [p.totalIncome, p.totalExpense, p.totalBills, p.balance],
+            backgroundColor: 'rgba(129,140,248,.5)',
+            borderRadius: 5
+          },
+          {
+            label: fmtMonth(c.month),
+            data: [c.totalIncome, c.totalExpense, c.totalBills, c.balance],
+            backgroundColor: 'rgba(52,211,153,.65)',
+            borderRadius: 5
+          }
+        ]
       },
-      scales: {
-        x: { grid: { color: 'rgba(255,255,255,.04)' } },
-        y: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { callback: v => 'R$' + (v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v) } }
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { boxWidth: 10, font: { size: 11 } } },
+          tooltip: { callbacks: { label: ctx => ' ' + fmt(ctx.raw) } }
+        },
+        scales: {
+          x: { grid: { color: 'rgba(255,255,255,.04)' } },
+          y: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { callback: v => 'R$' + (v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v) } }
+        }
       }
-    }
-  });
+    });
+
+  } catch (err) {
+    console.error('[loadReports]', err);
+    el.innerHTML = `<div style="padding:40px;text-align:center;color:var(--expense)">
+      <p style="font-size:15px;margin-bottom:8px">Erro ao carregar relatório</p>
+      <p style="font-size:12px;color:var(--text-3)">${esc(err.message)}</p>
+    </div>`;
+  }
 }
 
 function renderHealthCard(health) {

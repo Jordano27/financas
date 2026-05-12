@@ -353,60 +353,34 @@ router.get('/insights/:month', (req, res) => {
         const userId = req.user.sub;
         const month = req.params.month;
 
-        // ── Subscription categories (keywords in description/category) ────────
-        const SUBSCRIPTION_GROUPS = {
-            'Streamings': ['netflix', 'hbo', 'disney', 'amazon prime', 'prime video', 'apple tv', 'globoplay', 'paramount', 'crunchyroll', 'youtube premium', 'deezer', 'spotify', 'tidal', 'apple music'],
-            'IAs': ['chatgpt', 'openai', 'copilot', 'claude', 'gemini', 'midjourney', 'notion ai', 'grammarly', 'jasper', 'perplexity'],
-            'Jogos': ['xbox', 'playstation', 'ps plus', 'ps now', 'nintendo', 'game pass', 'ea play', 'steam', 'epic', 'geforce', 'ubisoft'],
-            'Cloud & Software': ['google one', 'icloud', 'dropbox', 'onedrive', 'adobe', 'microsoft 365', 'office', 'aws', 'azure', 'google workspace', 'github', 'figma', 'notion', 'slack', 'zoom', 'trello', 'canva'],
-            'Saúde & Fitness': ['gympass', 'wellhub', 'academia', 'strava', 'nike', 'headspace', 'calm', 'duolingo'],
-            'Notícias & Educação': ['globo', 'folha', 'uol', 'estadão', 'coursera', 'udemy', 'alura', 'rocketseat', 'pluralsight', 'skillshare', 'linkedin learning'],
-            'Outros': []
-        };
-
-        // Collect all bills as recurring items
+        // Collect all data
         const allBills = getBills(userId, { activeOnly: true });
-
-        // Also collect expense transactions with recurring keywords
         const expenses = getTransactions(userId, { month, type: 'expense' });
         const incomes = getTransactions(userId, { month, type: 'income' });
 
-        // Classify subscriptions
-        function classify(text) {
-            const lower = (text || '').toLowerCase();
-            for (const [group, keywords] of Object.entries(SUBSCRIPTION_GROUPS)) {
-                if (group === 'Outros') continue;
-                if (keywords.some(k => lower.includes(k))) return group;
-            }
-            return null; // not a known subscription
-        }
-
-        // Build subscription groups from bills (recurring by nature)
-        const subscriptionGroups = {};
+        // ── Análise de Gastos: agrupar por categoria ──────────────────────────
+        // Contas fixas agrupadas por categoria
+        const spendingGroups = {};
         for (const bill of allBills) {
-            const group = classify(bill.description) || classify(bill.category);
-            if (group) {
-                if (!subscriptionGroups[group]) subscriptionGroups[group] = [];
-                subscriptionGroups[group].push({ name: bill.description, amount: bill.amount, source: 'conta_fixa' });
-            }
+            const cat = bill.category || 'Outros';
+            if (!spendingGroups[cat]) spendingGroups[cat] = { items: [], source: 'conta_fixa' };
+            spendingGroups[cat].items.push({ name: bill.description, amount: bill.amount, source: 'conta_fixa' });
         }
-
-        // Also detect from expense transactions (description matches)
+        // Gastos variáveis agrupados por categoria
         for (const exp of expenses) {
-            const group = classify(exp.description) || classify(exp.category);
-            if (group) {
-                // Avoid duplicate if same description already from bills
-                const already = Object.values(subscriptionGroups).flat().some(
-                    s => s.name.toLowerCase() === exp.description.toLowerCase()
-                );
-                if (!already) {
-                    if (!subscriptionGroups[group]) subscriptionGroups[group] = [];
-                    subscriptionGroups[group].push({ name: exp.description, amount: exp.amount, source: 'gasto' });
-                }
-            }
+            const cat = exp.category || 'Outros';
+            if (!spendingGroups[cat]) spendingGroups[cat] = { items: [], source: 'gasto' };
+            spendingGroups[cat].items.push({ name: exp.description, amount: exp.amount, source: 'gasto' });
         }
-
-        const subscriptionTotal = Object.values(subscriptionGroups).flat().reduce((s, i) => s + i.amount, 0);
+        // Ordenar categorias por total decrescente
+        const spendingGroupsSorted = Object.fromEntries(
+            Object.entries(spendingGroups)
+                .map(([cat, g]) => [cat, { ...g, total: g.items.reduce((s, i) => s + i.amount, 0) }])
+                .sort((a, b) => b[1].total - a[1].total)
+        );
+        const spendingTotal = Object.values(spendingGroupsSorted).reduce((s, g) => s + g.total, 0);
+        // Manter compatibilidade: subscriptions alias
+        const subscriptionTotal = spendingTotal;
 
         // ── Balance forecast ──────────────────────────────────────────────────
         const today = new Date();
@@ -458,8 +432,8 @@ router.get('/insights/:month', (req, res) => {
                 isCurrentMonth
             },
             subscriptions: {
-                groups: subscriptionGroups,
-                total: subscriptionTotal
+                groups: spendingGroupsSorted,
+                total: spendingTotal
             }
         });
     } catch (e) { res.status(500).json({ error: e.message }); }

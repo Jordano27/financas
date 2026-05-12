@@ -6,7 +6,8 @@
     "passwordHash": "97e9df6b1569f429b3a46cba3dc9641a49fc050a48dcc7fb2e8ed38144787cadc7d6653769dc38abd8aeac668b28969b1f366bf70da3dd00be60c2f6adf6ff02",
     "salt": "2e87626219d2971f2ca1a26330ff6552",
     "createdAt": "2026-05-07T21:07:24.171Z",
-    "active": false
+    "active": false,
+    "plan": "free"
   },
   {
     "id": "9ce0c803-1427-465a-b366-cb28e11b39df",
@@ -81,5 +82,16 @@
     "plan": "free",
     "active": false,
     "createdAt": "2026-05-11T13:18:41.573Z"
+  },
+  {
+    "id": "acfa38fc-3b25-4fc8-ae20-957f2128cc7c",
+    "name": "testanto123",
+    "email": "testanto123@testanto123.com.br",
+    "passwordHash": "7ff118d14d37d7144efde314964c0078a73e6ad2fc0de4e7e63317c497e40cf7379e8adcf898cc373e6c50975a9e8bb41b538aabde685812040d13c6c3a4f36d",
+    "salt": "ba2e2bc3af4ea7d2c1d0ed809092b5f8",
+    "role": "user",
+    "plan": "free",
+    "active": true,
+    "createdAt": "2026-05-12T00:07:50.760Z"
   }
 ]
