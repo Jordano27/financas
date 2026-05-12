@@ -7,6 +7,7 @@ import { requireAuth } from './middleware/auth.js';
 import authRouter from './routes/auth.js';
 import transactionsRouter from './routes/transactions.js';
 import adminRouter from './routes/admin.js';
+import { initScheduler } from './scheduler.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -45,4 +46,5 @@ app.use((req, res) => {
 
 app.listen(PORT, () => {
     console.log(`\n  💰  Gerenciador Financeiro  →  http://localhost:${PORT}\n`);
+    initScheduler();
 });

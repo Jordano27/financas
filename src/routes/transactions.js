@@ -9,7 +9,7 @@ import {
 } from '../transactions.js';
 import { buildMonthStats, compareMonths, buildAverages, financialHealth, buildHealthAnalysis } from '../reports.js';
 import { exportSpreadsheet } from '../spreadsheet.js';
-import { findUserById, updateUser } from '../users.js';
+import { findUserById, updateUser, setEmailOptOut, getOrCreateUnsubToken } from '../users.js';
 import { requirePremium } from '../middleware/auth.js';
 
 const router = Router();
@@ -446,6 +446,23 @@ router.get('/health/:month', (req, res) => {
         const month = req.params.month;
         const months = getAllMonths(userId);
         res.json(buildHealthAnalysis(userId, month, months));
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET /api/email-optin  — retorna estado atual de opt-out do usuário
+router.get('/email-optin', (req, res) => {
+    try {
+        const user = findUserById(req.user.sub);
+        res.json({ emailOptOut: user?.emailOptOut ?? false });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PATCH /api/email-optin  — { optOut: true|false }
+router.patch('/email-optin', (req, res) => {
+    try {
+        const { optOut } = req.body ?? {};
+        const result = setEmailOptOut(req.user.sub, optOut);
+        res.json(result);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

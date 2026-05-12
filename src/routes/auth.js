@@ -2,7 +2,7 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import jwt from 'jsonwebtoken';
 import { JWT_SECRET, JWT_EXPIRES } from '../config.js';
-import { findUserByEmail, registerUser, verifyPassword, validateUserInput } from '../users.js';
+import { findUserByEmail, registerUser, verifyPassword, validateUserInput, unsubscribeByToken } from '../users.js';
 
 const router = Router();
 
@@ -41,6 +41,29 @@ router.post('/register', (req, res) => {
         res.status(201).json(user);
     } catch (e) {
         res.status(409).json({ error: e.message });
+    }
+});
+
+// GET /api/auth/unsubscribe?token=xxx  (link do email, sem autenticação)
+router.get('/unsubscribe', (req, res) => {
+    const { token } = req.query;
+    try {
+        const user = unsubscribeByToken(token);
+        res.send(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+<title>Cancelado</title><style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f3f4f6}
+.card{background:#fff;border-radius:12px;padding:40px;max-width:420px;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+h1{color:#16a34a}p{color:#374151}</style></head>
+<body><div class="card"><h1>✅ Pronto!</h1>
+<p>O email <strong>${user.email}</strong> foi removido da lista de relatórios mensais.</p>
+<p>Você pode reativar o recebimento a qualquer momento nas configurações do seu perfil.</p>
+<a href="/" style="display:inline-block;margin-top:16px;padding:10px 24px;background:#1e40af;color:#fff;border-radius:8px;text-decoration:none">Ir para o app</a>
+</div></body></html>`);
+    } catch {
+        res.status(400).send(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Erro</title>
+<style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f3f4f6}
+.card{background:#fff;border-radius:12px;padding:40px;max-width:420px;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+h1{color:#dc2626}</style></head>
+<body><div class="card"><h1>Link inválido</h1><p>Este link de cancelamento é inválido ou já foi utilizado.</p></div></body></html>`);
     }
 });
 

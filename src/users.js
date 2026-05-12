@@ -142,6 +142,41 @@ export function setUserPlan(id, plan) {
     return { id: user.id, name: user.name, email: user.email, plan: user.plan };
 }
 
+// ── Email opt-out ─────────────────────────────────────────────────────────────
+
+/** Gera (ou retorna o existente) token de cancelamento de emails para um usuário. */
+export function getOrCreateUnsubToken(id) {
+    const users = loadUsers();
+    const user = users.find(u => u.id === id);
+    if (!user) throw new Error('Usuário não encontrado');
+    if (!user.unsubToken) {
+        user.unsubToken = randomBytes(24).toString('hex');
+        saveUsers(users);
+    }
+    return user.unsubToken;
+}
+
+/** Marca o usuário como opt-out via token (sem precisar de autenticação). */
+export function unsubscribeByToken(token) {
+    if (!token) throw new Error('Token inválido');
+    const users = loadUsers();
+    const user = users.find(u => u.unsubToken === token);
+    if (!user) throw new Error('Token não encontrado');
+    user.emailOptOut = true;
+    saveUsers(users);
+    return { name: user.name, email: user.email };
+}
+
+/** Permite o usuário reativar o recebimento via painel. */
+export function setEmailOptOut(id, optOut) {
+    const users = loadUsers();
+    const user = users.find(u => u.id === id);
+    if (!user) throw new Error('Usuário não encontrado');
+    user.emailOptOut = Boolean(optOut);
+    saveUsers(users);
+    return { id: user.id, emailOptOut: user.emailOptOut };
+}
+
 export function verifyPassword(user, password) {
     try {
         const hash = scryptSync(password, user.salt, 64);

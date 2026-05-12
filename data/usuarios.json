@@ -31,13 +31,14 @@
   {
     "id": "2a945bc5-de85-4f1b-80f4-31000f7a7500",
     "name": "Jordano Orlando Poletto",
-    "email": "jordanopoletto@gmail.com",
+    "email": "gabi.flutz@gmail.com",
     "passwordHash": "c983084df1f30fc6df754a08db53dbcf0922f21f8fc743325847bfa41af0a40d7887df15f7864b10413ac4e1a88b97e42497022c590a774bd5f634b6be52c4b6",
     "salt": "49618c8c7eabf0baeb539469a1ef3b45",
     "role": "user",
     "active": true,
     "createdAt": "2026-05-07T21:52:47.762Z",
-    "plan": "premium"
+    "plan": "premium",
+    "unsubToken": "d4461f395998d2e6077160955b6991af25c90715646c5423"
   },
   {
     "id": "e7be13e8-6170-4fd4-a382-c28fc76a1da6",
@@ -64,7 +65,7 @@
   {
     "id": "d047c764-f4f6-46f0-aa8b-034aadc0a729",
     "name": "testeteste",
-    "email": "service20@cencicia.com.br",
+    "email": "serv@serv.com.br",
     "passwordHash": "9a50ee3729fe4bcbb2d48e8b96ce64a223daa1331d4f6fb284c04f65219f13ed50211c82fb71e898939685dca81eaeba2b72a58fa4a983b5c9afb50ca6b7804e",
     "salt": "c261387c4cdb72d72f3f08f7bae5acf1",
     "role": "user",

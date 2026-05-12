@@ -2834,6 +2834,22 @@ async function showMyAccountModal() {
   try { user = await api('GET', '/api/me'); }
   catch (e) { toast(e.message, 'error'); return; }
 
+  // Carrega estado de opt-out apenas para premium
+  let emailOptOut = false;
+  if (user.plan === 'premium') {
+    try { const r = await api('GET', '/api/email-optin'); emailOptOut = r.emailOptOut; }
+    catch (_) { /* ignora */ }
+  }
+
+  const emailRow = user.plan === 'premium' ? `
+      <div class="form-group" style="border-top:1px solid var(--border,#e5e7eb);padding-top:14px;margin-top:4px;">
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:500;">
+          <input type="checkbox" id="emailOptOutChk" ${emailOptOut ? 'checked' : ''} style="width:16px;height:16px;cursor:pointer;" />
+          <span>Não receber relatório mensal por e-mail</span>
+        </label>
+        <small style="color:var(--text-3);display:block;margin-top:4px;padding-left:26px;">Relatório de Saúde Financeira enviado todo dia 1</small>
+      </div>` : '';
+
   openModal(`
     <div class="modal-title">Minha Conta</div>
     <form id="my-account-form">
@@ -2849,6 +2865,7 @@ async function showMyAccountModal() {
         <label>Nova senha <small style="color:var(--text-3)">(deixe vazio para não alterar)</small></label>
         <input class="form-input" name="password" type="password" placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" autocomplete="new-password" />
       </div>
+      ${emailRow}
       <div class="form-footer">
         <button type="button" class="btn btn-ghost" id="cancelAccountBtn">Cancelar</button>
         <button type="submit" class="btn btn-primary">Salvar</button>
@@ -2867,6 +2884,15 @@ async function showMyAccountModal() {
     if (newPass) body.password = newPass;
     try {
       await api('PUT', '/api/me', body);
+
+      // Salva preferência de opt-out se for premium
+      if (user.plan === 'premium') {
+        const chk = document.getElementById('emailOptOutChk');
+        if (chk) {
+          await api('PATCH', '/api/email-optin', { optOut: chk.checked }).catch(() => { });
+        }
+      }
+
       const credentialsChanged = newPass || newEmail !== user.email;
       if (credentialsChanged) {
         toast('Dados atualizados! Faça login novamente para continuar.', 'success');

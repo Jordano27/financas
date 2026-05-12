@@ -118,7 +118,7 @@
       "targetAmount": 20000,
       "targetDate": "2027-12-01",
       "category": "VIAGEM",
-      "savedAmount": 3695.15,
+      "savedAmount": 4553.3,
       "contributions": [
         {
           "id": "4055d6fc-cd11-41c2-8f6d-24c2603ec05c",
@@ -147,6 +147,13 @@
           "date": "2026-05-11",
           "note": "retbryt j",
           "createdAt": "2026-05-11T16:40:47.825Z"
+        },
+        {
+          "id": "c5dfd77b-912e-432f-af61-52de57e2b55d",
+          "amount": 858.15,
+          "date": "2026-05-12",
+          "note": "",
+          "createdAt": "2026-05-12T12:13:54.949Z"
         }
       ],
       "createdAt": "2026-05-11T16:17:18.837Z"
