@@ -87,17 +87,53 @@ export function addBill(userId, { description, amount, category, dueDay, active 
     return bill;
 }
 
-export function getBills(userId, { activeOnly = false } = {}) {
+export function getBills(userId, { activeOnly = false, month = null } = {}) {
     const db = loadUserDB(userId);
-    let list = db.bills;
+    let list = db.bills.map(b => {
+        if (!month) return { ...b };
+        // Support legacy boolean format (active only) and new object format
+        const raw = b.monthOverrides?.[month];
+        const override = raw !== undefined
+            ? (typeof raw === 'object' ? raw : { active: raw })
+            : {};
+        return { ...b, ...override };
+    });
+    // Oculta contas marcadas como excluídas no mês selecionado
+    if (month) list = list.filter(b => !b.deleted);
     if (activeOnly) list = list.filter(b => b.active);
     return list.sort((a, b) => a.dueDay - b.dueDay);
 }
 
-export function toggleBill(userId, id) {
+/**
+ * toggleBill com suporte a mês específico.
+ * - Com month: alterna apenas o override para aquele mês (não afeta outros meses).
+ * - Sem month: alterna o estado global `active` (comportamento legado).
+ */
+export function toggleBill(userId, id, month = null) {
     const db = loadUserDB(userId);
     const bill = db.bills.find(b => b.id === id);
     if (!bill) return false;
+
+    if (month) {
+        if (!bill.monthOverrides) bill.monthOverrides = {};
+        // Normalize legacy boolean to object
+        if (typeof bill.monthOverrides[month] !== 'object') {
+            bill.monthOverrides[month] = {};
+        }
+        const ov = bill.monthOverrides[month];
+        const currentActive = 'active' in ov ? ov.active : bill.active;
+        if (currentActive === bill.active) {
+            ov.active = !bill.active;
+        } else {
+            delete ov.active;
+            if (Object.keys(ov).length === 0) delete bill.monthOverrides[month];
+        }
+        saveUserDB(userId, db);
+        const finalOv = bill.monthOverrides?.[month] || {};
+        return { ...bill, ...finalOv };
+    }
+
+    // Legacy: toggle global state
     bill.active = !bill.active;
     saveUserDB(userId, db);
     return bill;
@@ -118,22 +154,70 @@ export function toggleBillPaid(userId, id, month) {
     return bill;
 }
 
-export function deleteBill(userId, id) {
+/**
+ * deleteBill com suporte a mês específico.
+ * - Com month: marca `deleted: true` no override daquele mês (oculta só neste mês).
+ * - Sem month: remove a conta permanentemente de todos os meses.
+ */
+export function deleteBill(userId, id, month = null) {
     const db = loadUserDB(userId);
+    const bill = db.bills.find(b => b.id === id);
+    if (!bill) return false;
+
+    if (month) {
+        if (!bill.monthOverrides) bill.monthOverrides = {};
+        if (!bill.monthOverrides[month] || typeof bill.monthOverrides[month] !== 'object') {
+            bill.monthOverrides[month] = {};
+        }
+        bill.monthOverrides[month].deleted = true;
+        saveUserDB(userId, db);
+        return true;
+    }
+
+    // Remoção global
     const before = db.bills.length;
     db.bills = db.bills.filter(b => b.id !== id);
     saveUserDB(userId, db);
     return db.bills.length < before;
 }
 
-export function updateBill(userId, id, { description, amount, category, dueDay }) {
+/**
+ * updateBill com suporte a mês específico.
+ * - Com month: salva as alterações somente no override daquele mês.
+ * - Sem month: altera os dados globais da conta (todos os meses).
+ */
+export function updateBill(userId, id, { description, amount, category, dueDay, month = null }) {
     const db = loadUserDB(userId);
     const bill = db.bills.find(b => b.id === id);
     if (!bill) return null;
-    if (description !== undefined) bill.description = String(description).trim();
-    if (amount !== undefined) bill.amount = Number(amount);
-    if (category !== undefined) bill.category = category;
-    if (dueDay !== undefined) bill.dueDay = Number(dueDay);
+
+    if (month) {
+        if (!bill.monthOverrides) bill.monthOverrides = {};
+        if (!bill.monthOverrides[month] || typeof bill.monthOverrides[month] !== 'object') {
+            bill.monthOverrides[month] = {};
+        }
+        const ov = bill.monthOverrides[month];
+        if (description !== undefined) ov.description = String(description).trim();
+        if (amount !== undefined) ov.amount = Number(amount);
+        if (category !== undefined) ov.category = category;
+        if (dueDay !== undefined) ov.dueDay = Number(dueDay);
+        // Remove override if it matches the global values exactly
+        if (
+            (!('description' in ov) || ov.description === bill.description) &&
+            (!('amount' in ov) || ov.amount === bill.amount) &&
+            (!('category' in ov) || ov.category === bill.category) &&
+            (!('dueDay' in ov) || ov.dueDay === bill.dueDay) &&
+            !('active' in ov)
+        ) {
+            delete bill.monthOverrides[month];
+        }
+    } else {
+        if (description !== undefined) bill.description = String(description).trim();
+        if (amount !== undefined) bill.amount = Number(amount);
+        if (category !== undefined) bill.category = category;
+        if (dueDay !== undefined) bill.dueDay = Number(dueDay);
+    }
+
     saveUserDB(userId, db);
     return bill;
 }

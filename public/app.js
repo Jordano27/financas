@@ -1204,7 +1204,7 @@ async function loadTransactions(type) {
 
 // ── Bills ─────────────────────────────────────────────────────────────────────
 async function loadBills() {
-  const bills = await api('GET', '/api/bills');
+  const bills = await api('GET', `/api/bills?month=${state.month}`);
   const totalActive = bills.filter(b => b.active).reduce((s, b) => s + b.amount, 0);
   const totalPaid = bills
     .filter(b => b.active && (b.paidMonths || []).includes(state.month))
@@ -1275,18 +1275,18 @@ async function loadBills() {
       } catch (err) { toast(err.message, 'error'); }
     } else if (toggleBtn) {
       try {
-        await api('PATCH', `/api/bills/${toggleBtn.dataset.toggleBill}/toggle`);
+        await api('PATCH', `/api/bills/${toggleBtn.dataset.toggleBill}/toggle`, { month: state.month });
         toast('Status atualizado', 'info');
         loadBills();
       } catch (err) { toast(err.message, 'error'); }
     } else if (editBtn) {
       const data = JSON.parse(editBtn.dataset.editBill);
-      showEditBillModal(data);
+      showEditBillModal(data, state.month);
     } else if (delBtn) {
-      if (!await confirmDelete('Tem certeza que deseja excluir esta conta fixa?')) return;
+      if (!await confirmDelete(`Excluir esta conta fixa somente em ${fmtMonth(state.month)}?`)) return;
       try {
-        await api('DELETE', `/api/bills/${delBtn.dataset.delBill}`);
-        toast('Conta excluída', 'success');
+        await api('DELETE', `/api/bills/${delBtn.dataset.delBill}?month=${state.month}`);
+        toast('Conta removida neste mês', 'success');
         loadBills();
       } catch (err) { toast(err.message, 'error'); }
     }
@@ -2766,11 +2766,17 @@ function showEditTransactionModal(tx, type) {
 }
 
 // ── Edit Bill modal ───────────────────────────────────────────────────────────
-function showEditBillModal(bill) {
+function showEditBillModal(bill, month) {
   const cats = state.categories.bill || [];
+  const monthNote = month
+    ? `<p style="margin:0 0 14px;font-size:13px;color:var(--text-3);background:var(--bg-2,#f3f4f6);border-radius:6px;padding:8px 10px;">
+        ✏️ Alterações aplicadas somente em <strong>${fmtMonth(month)}</strong>
+       </p>`
+    : '';
 
   openModal(`
     <div class="modal-title">Editar Conta Fixa</div>
+    ${monthNote}
     <form id="edit-bill-form">
       <div class="form-group">
         <label>Categoria</label>
@@ -2808,7 +2814,8 @@ function showEditBillModal(bill) {
         description: fd.get('description'),
         amount: fd.get('amount'),
         category: fd.get('category'),
-        dueDay: fd.get('dueDay')
+        dueDay: fd.get('dueDay'),
+        month: month || undefined
       });
       closeModal();
       toast('Conta fixa atualizada!', 'success');

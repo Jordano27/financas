@@ -17,7 +17,7 @@ export function buildMonthStats(userId, month) {
     // Contas fixas só entram no cálculo se o mês tiver alguma atividade real,
     // evitando que meses sem dados mostrem valores de contas fixas no histórico.
     const hasActivity = incomes.length > 0 || expenses.length > 0;
-    const bills = hasActivity ? getBills(userId, { activeOnly: true }) : [];
+    const bills = hasActivity ? getBills(userId, { activeOnly: true, month }) : [];
 
     const totalIncome = incomes.reduce((s, t) => s + t.amount, 0);
     const totalExpense = expenses.reduce((s, t) => s + t.amount, 0);
@@ -231,6 +231,33 @@ export function buildHealthAnalysis(userId, month, months) {
 
 function fmtVal(v) {
     return 'R$ ' + v.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+// ── Spending analysis (Análise de Gastos — mesma lógica do /api/insights) ────
+
+export function buildSpendingAnalysis(userId, month) {
+    const bills = getBills(userId, { activeOnly: true, month });
+    const expenses = getTransactions(userId, { month, type: 'expense' });
+
+    const groups = {};
+    for (const bill of bills) {
+        const cat = bill.category || 'Outros';
+        if (!groups[cat]) groups[cat] = { items: [] };
+        groups[cat].items.push({ name: bill.description, amount: bill.amount, source: 'conta_fixa' });
+    }
+    for (const exp of expenses) {
+        const cat = exp.category || 'Outros';
+        if (!groups[cat]) groups[cat] = { items: [] };
+        groups[cat].items.push({ name: exp.description, amount: exp.amount, source: 'gasto' });
+    }
+
+    const sorted = Object.fromEntries(
+        Object.entries(groups)
+            .map(([cat, g]) => [cat, { ...g, total: g.items.reduce((s, i) => s + i.amount, 0) }])
+            .sort((a, b) => b[1].total - a[1].total)
+    );
+    const total = Object.values(sorted).reduce((s, g) => s + g.total, 0);
+    return { groups: sorted, total };
 }
 
 // ── Terminal print helpers ────────────────────────────────────────────────────

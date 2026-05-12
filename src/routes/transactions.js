@@ -99,7 +99,9 @@ router.put('/transactions/:id', (req, res) => {
 router.get('/bills', (req, res) => {
     try {
         const userId = req.user.sub;
-        res.json(getBills(userId, { activeOnly: false }));
+        const month = typeof req.query.month === 'string' && /^\d{4}-\d{2}$/.test(req.query.month)
+            ? req.query.month : null;
+        res.json(getBills(userId, { activeOnly: false, month }));
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -122,7 +124,9 @@ router.post('/bills', (req, res) => {
 router.patch('/bills/:id/toggle', (req, res) => {
     try {
         const userId = req.user.sub;
-        const bill = toggleBill(userId, req.params.id);
+        const month = typeof req.body?.month === 'string' && /^\d{4}-\d{2}$/.test(req.body.month)
+            ? req.body.month : null;
+        const bill = toggleBill(userId, req.params.id, month);
         bill ? res.json(bill) : res.status(404).json({ error: 'Não encontrado' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -139,11 +143,13 @@ router.patch('/bills/:id/paid', (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// DELETE /api/bills/:id
+// DELETE /api/bills/:id  (query: ?month=YYYY-MM para excluir só naquele mês)
 router.delete('/bills/:id', (req, res) => {
     try {
         const userId = req.user.sub;
-        const ok = deleteBill(userId, req.params.id);
+        const month = typeof req.query.month === 'string' && /^\d{4}-\d{2}$/.test(req.query.month)
+            ? req.query.month : null;
+        const ok = deleteBill(userId, req.params.id, month);
         ok ? res.json({ ok: true }) : res.status(404).json({ error: 'Não encontrado' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -153,6 +159,8 @@ router.put('/bills/:id', (req, res) => {
     try {
         const userId = req.user.sub;
         const { description, amount, category, dueDay } = req.body;
+        const month = typeof req.body.month === 'string' && /^\d{4}-\d{2}$/.test(req.body.month)
+            ? req.body.month : null;
         if (amount !== undefined) {
             const val = parseFloat(String(amount).replace(',', '.'));
             if (isNaN(val) || val <= 0)
@@ -165,7 +173,7 @@ router.put('/bills/:id', (req, res) => {
                 return res.status(400).json({ error: 'Dia inválido (1-31)' });
             req.body.dueDay = day;
         }
-        const bill = updateBill(userId, req.params.id, { description, amount: req.body.amount, category, dueDay: req.body.dueDay });
+        const bill = updateBill(userId, req.params.id, { description, amount: req.body.amount, category, dueDay: req.body.dueDay, month });
         bill ? res.json(bill) : res.status(404).json({ error: 'Não encontrado' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -354,7 +362,7 @@ router.get('/insights/:month', (req, res) => {
         const month = req.params.month;
 
         // Collect all data
-        const allBills = getBills(userId, { activeOnly: true });
+        const allBills = getBills(userId, { activeOnly: true, month });
         const expenses = getTransactions(userId, { month, type: 'expense' });
         const incomes = getTransactions(userId, { month, type: 'income' });
 

@@ -4,7 +4,7 @@
       "id": "bf1075eb-212e-40f4-b713-ad58ce47ef7c",
       "type": "income",
       "description": "salario mensal",
-      "amount": 2760,
+      "amount": 4000,
       "category": "Salário",
       "date": "2026-05-09",
       "createdAt": "2026-05-11T13:21:51.617Z"
@@ -12,7 +12,7 @@
     {
       "id": "2ee72a49-8582-44c2-b15c-ec2c16820d69",
       "type": "income",
-      "description": "Confraria do Vinho",
+      "description": "freela 1",
       "amount": 200,
       "category": "Freelance",
       "date": "2026-05-09",
@@ -26,6 +26,24 @@
       "category": "Alimentação",
       "date": "2026-05-12",
       "createdAt": "2026-05-12T00:53:55.485Z"
+    },
+    {
+      "id": "d4557234-b0e9-4c6e-bab7-0c6318d76e20",
+      "type": "income",
+      "description": "salario mensal",
+      "amount": 4200,
+      "category": "Salário",
+      "date": "2026-04-12",
+      "createdAt": "2026-05-12T22:49:21.176Z"
+    },
+    {
+      "id": "ed968dc7-7bad-4138-b931-2afec9215aec",
+      "type": "income",
+      "description": "freela 1",
+      "amount": 400,
+      "category": "Freelance",
+      "date": "2026-04-12",
+      "createdAt": "2026-05-12T22:50:29.416Z"
     }
   ],
   "bills": [
@@ -38,7 +56,8 @@
       "active": true,
       "createdAt": "2026-05-08T01:50:43.263Z",
       "paidMonths": [
-        "2026-05"
+        "2026-05",
+        "2026-04"
       ]
     },
     {
@@ -50,7 +69,8 @@
       "active": true,
       "createdAt": "2026-05-08T01:51:07.433Z",
       "paidMonths": [
-        "2026-05"
+        "2026-05",
+        "2026-04"
       ]
     },
     {
@@ -62,7 +82,8 @@
       "active": true,
       "createdAt": "2026-05-08T16:17:36.320Z",
       "paidMonths": [
-        "2026-05"
+        "2026-05",
+        "2026-04"
       ]
     },
     {
@@ -73,17 +94,36 @@
       "dueDay": 16,
       "active": true,
       "createdAt": "2026-05-08T16:18:37.425Z",
-      "paidMonths": []
+      "paidMonths": [
+        "2026-04",
+        "2026-05"
+      ]
     },
     {
       "id": "7f5b33e1-ef93-4c88-9ba4-6d6fb37dc3c2",
       "description": "Corte Cabelo",
-      "amount": 40,
+      "amount": 65,
       "category": "Outros",
       "dueDay": 15,
       "active": true,
       "createdAt": "2026-05-08T16:19:20.292Z",
-      "paidMonths": []
+      "paidMonths": [
+        "2026-04"
+      ],
+      "monthOverrides": {
+        "2026-04": {
+          "description": "Corte Cabelo",
+          "amount": 40,
+          "category": "Outros",
+          "dueDay": 15
+        },
+        "2026-05": {
+          "description": "Corte Cabelo",
+          "amount": 40,
+          "category": "Outros",
+          "dueDay": 15
+        }
+      }
     },
     {
       "id": "fdcb67eb-f372-41a3-92a8-5e1e83967106",
@@ -94,23 +134,42 @@
       "active": true,
       "createdAt": "2026-05-11T16:55:27.143Z",
       "paidMonths": [
-        "2026-05"
+        "2026-05",
+        "2026-04"
       ]
     },
     {
-      "id": "6ddfe125-842f-4525-b9ed-d6591f26515e",
+      "id": "193c3d31-c1b4-49d1-8c75-04d4b22d3745",
       "description": "Prime Video",
       "amount": 20,
       "category": "Streaming",
       "dueDay": 15,
       "active": true,
-      "createdAt": "2026-05-11T16:59:07.547Z",
+      "createdAt": "2026-05-12T23:39:16.042Z",
       "paidMonths": [
+        "2026-04",
         "2026-05"
       ]
     }
   ],
-  "investments": [],
+  "investments": [
+    {
+      "id": "a467750c-0808-42a7-a63f-ba19d5eecea0",
+      "description": "Poupança",
+      "amount": 200,
+      "category": "Poupança",
+      "date": "2026-05-12",
+      "createdAt": "2026-05-12T22:45:32.230Z"
+    },
+    {
+      "id": "b25f5226-114e-4ffb-9bdc-ccd49c0ea4da",
+      "description": "Poupança",
+      "amount": 400,
+      "category": "Poupança",
+      "date": "2026-04-12",
+      "createdAt": "2026-05-12T22:51:24.870Z"
+    }
+  ],
   "goals": [
     {
       "id": "82a0efc4-aedc-49e3-8a76-bd0ad029ee02",

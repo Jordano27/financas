@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import { listUsers, findUserById, getOrCreateUnsubToken } from './users.js';
 import { getAllMonths, previousMonth } from './transactions.js';
-import { buildMonthStats, financialHealth, compareMonths, buildAverages } from './reports.js';
+import { buildMonthStats, financialHealth, compareMonths, buildAverages, buildSpendingAnalysis } from './reports.js';
 import { buildHealthReportEmail } from './email-templates/health-report.js';
 import { sendMail, isSmtpConfigured } from './mailer.js';
 
@@ -47,6 +47,9 @@ async function sendReportToUser(user, month) {
     const historicMonths = months.filter(m => m < month);
     const averages = historicMonths.length ? buildAverages(userId, historicMonths) : null;
 
+    // Análise de gastos por categoria
+    const spending = buildSpendingAnalysis(userId, month);
+
     // Token de opt-out
     const unsubToken = getOrCreateUnsubToken(userId);
 
@@ -57,6 +60,7 @@ async function sendReportToUser(user, month) {
         current: currentStats,
         averages,
         comparison,
+        spending,
         unsubToken,
     });
 
