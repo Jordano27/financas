@@ -11,6 +11,7 @@ import { buildMonthStats, compareMonths, buildAverages, financialHealth, buildHe
 import { exportSpreadsheet } from '../spreadsheet.js';
 import { findUserById, updateUser, setEmailOptOut, getOrCreateUnsubToken } from '../users.js';
 import { requirePremium } from '../middleware/auth.js';
+import { enviarEmailMetaConcluida } from '../automacoes/automacoes_email/meta-concluida.js';
 
 const router = Router();
 
@@ -341,7 +342,14 @@ router.post('/goals/:id/contributions', (req, res) => {
         const val = parseFloat(String(amount).replace(',', '.'));
         if (isNaN(val) || val <= 0) return res.status(400).json({ error: 'Valor inválido' });
         const goal = addGoalContribution(req.user.sub, req.params.id, { amount: val, date, note });
-        goal ? res.json(goal) : res.status(404).json({ error: 'Não encontrado' });
+        if (!goal) return res.status(404).json({ error: 'Não encontrado' });
+        // Dispara email se a meta atingiu 100% agora
+        if ((goal.savedAmount || 0) >= goal.targetAmount && !goal.completedEmailSent) {
+            enviarEmailMetaConcluida(req.user.sub, goal).catch(err =>
+                console.error('[MetaConcluida] Erro ao enviar email por evento:', err.message)
+            );
+        }
+        res.json(goal);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

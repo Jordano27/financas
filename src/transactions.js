@@ -346,6 +346,17 @@ export function deleteGoalContribution(userId, goalId, contributionId) {
     return goal;
 }
 
+/** Marca a meta como "email de conclusão enviado" para não enviar duplicata. */
+export function markGoalCompletedEmailSent(userId, goalId) {
+    const db = loadUserDB(userId);
+    const goal = (db.goals || []).find(g => g.id === goalId);
+    if (!goal) return false;
+    goal.completedEmailSent = true;
+    goal.completedAt = goal.completedAt || new Date().toISOString();
+    saveUserDB(userId, db);
+    return true;
+}
+
 // ── Month query helpers ───────────────────────────────────────────────────────
 
 export function getAllMonths(userId) {

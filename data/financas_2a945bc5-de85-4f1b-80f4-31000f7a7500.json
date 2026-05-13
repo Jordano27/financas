@@ -177,15 +177,8 @@
       "targetAmount": 20000,
       "targetDate": "2027-12-01",
       "category": "VIAGEM",
-      "savedAmount": 4553.3,
+      "savedAmount": 23553.3,
       "contributions": [
-        {
-          "id": "4055d6fc-cd11-41c2-8f6d-24c2603ec05c",
-          "amount": 1000,
-          "date": "2026-05-11",
-          "note": "SALARIO DE abril",
-          "createdAt": "2026-05-11T16:40:33.131Z"
-        },
         {
           "id": "209ebe68-47cc-4b39-b003-74db2d5c1b1c",
           "amount": 947.37,
@@ -213,9 +206,18 @@
           "date": "2026-05-12",
           "note": "",
           "createdAt": "2026-05-12T12:13:54.949Z"
+        },
+        {
+          "id": "ef445f53-8ea8-4bbd-87d6-199e30e80dbb",
+          "amount": 20000,
+          "date": "2026-05-13",
+          "note": "",
+          "createdAt": "2026-05-13T03:47:35.194Z"
         }
       ],
-      "createdAt": "2026-05-11T16:17:18.837Z"
+      "createdAt": "2026-05-11T16:17:18.837Z",
+      "completedEmailSent": true,
+      "completedAt": "2026-05-13T03:10:18.486Z"
     },
     {
       "id": "d76e0ea0-7ae8-4b21-b80d-43899123689c",
@@ -223,7 +225,7 @@
       "targetAmount": 1000,
       "targetDate": "2029-12-01",
       "category": "VIAGEM",
-      "savedAmount": 23.26,
+      "savedAmount": 1000.26,
       "contributions": [
         {
           "id": "2fc73020-5e37-4178-b9ae-1c1121405d8a",
@@ -231,9 +233,45 @@
           "date": "2026-05-11",
           "note": "SALARIO DE MAIO",
           "createdAt": "2026-05-11T16:34:16.414Z"
+        },
+        {
+          "id": "9a1c6d7f-6dbd-4b18-ac37-47088048a7ef",
+          "amount": 975,
+          "date": "2026-05-13",
+          "note": "",
+          "createdAt": "2026-05-13T03:51:12.880Z"
+        },
+        {
+          "id": "ba10ad6c-4d7e-4b83-8ec5-d0ff262cd9e3",
+          "amount": 2,
+          "date": "2026-05-13",
+          "note": "",
+          "createdAt": "2026-05-13T03:51:33.170Z"
         }
       ],
-      "createdAt": "2026-05-11T16:34:05.416Z"
+      "createdAt": "2026-05-11T16:34:05.416Z",
+      "completedEmailSent": true,
+      "completedAt": "2026-05-13T03:51:46.380Z"
+    },
+    {
+      "id": "1c0f4077-ea00-4126-a130-bd3fb85e3864",
+      "description": "VIAGEM paris",
+      "targetAmount": 20000,
+      "targetDate": "2026-12-01",
+      "category": "VIAGEM",
+      "savedAmount": 20000,
+      "contributions": [
+        {
+          "id": "f634ae3b-aa71-4c24-b80e-d8fdac91450a",
+          "amount": 20000,
+          "date": "2026-05-13",
+          "note": "",
+          "createdAt": "2026-05-13T04:01:41.628Z"
+        }
+      ],
+      "createdAt": "2026-05-13T04:01:28.024Z",
+      "completedEmailSent": true,
+      "completedAt": "2026-05-13T04:01:45.348Z"
     }
   ]
 }
