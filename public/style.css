@@ -1430,7 +1430,176 @@ body {
     color: var(--invest);
 }
 
-/* ── Investment summary bar ──────────────────────────────────────────────── */
+/* ── Invest grid & cards (estilo metas) ──────────────────────────────────── */
+.invest-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    gap: 14px;
+}
+
+.invest-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: border-color var(--transition);
+    position: relative;
+    overflow: hidden;
+}
+
+.invest-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--invest), transparent);
+}
+
+.invest-card:hover {
+    border-color: var(--border-2);
+}
+
+.invest-card__top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.invest-card__name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.invest-card__cat {
+    font-size: 11.5px;
+    color: var(--text-3);
+    margin-top: 3px;
+}
+
+.invest-market-badge {
+    font-size: 11px;
+    color: var(--invest);
+    font-weight: 600;
+}
+
+.invest-card__value {
+    font-size: 20px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.invest-card__sub {
+    font-size: 11.5px;
+    color: var(--text-3);
+}
+
+.invest-bar {
+    width: 100%;
+    height: 6px;
+    background: var(--border);
+    border-radius: 99px;
+    overflow: hidden;
+}
+
+.invest-bar__fill {
+    height: 100%;
+    border-radius: 99px;
+    transition: width .4s ease;
+    min-width: 3px;
+}
+
+.invest-card__stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    background: var(--surface, var(--bg));
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+}
+
+.invest-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.invest-stat__label {
+    font-size: 10.5px;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: .4px;
+}
+
+.invest-stat__val {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+}
+
+.invest-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+}
+
+.invest-meta__item {
+    font-size: 11.5px;
+    color: var(--text-3);
+}
+
+.invest-card__actions {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+}
+
+.invest-action-btn {
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border-2);
+    background: transparent;
+    color: var(--text-2);
+    cursor: pointer;
+    font-family: inherit;
+    transition: all var(--transition);
+    margin-right: auto;
+}
+
+.invest-action-btn:hover {
+    border-color: var(--invest);
+    color: var(--invest);
+}
+
+.form-hint {
+    font-size: 11.5px;
+    color: var(--text-3);
+    margin-top: 3px;
+    display: block;
+}
+
+@media (max-width: 600px) {
+    .invest-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .invest-card__stats {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+/* ── Investment summary bar (legacy, mantido para compat) ────────────────── */
 .invest-summary {
     display: flex;
     flex-wrap: wrap;

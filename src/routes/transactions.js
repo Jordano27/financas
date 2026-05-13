@@ -4,6 +4,7 @@ import {
     addTransaction, getTransactions, deleteTransaction, updateTransaction,
     addBill, getBills, deleteBill, toggleBill, toggleBillPaid, updateBill,
     addInvestment, getInvestments, deleteInvestment, updateInvestment, getTotalInvested,
+    addInvestmentContribution, deleteInvestmentContribution, updateInvestmentCurrentValue,
     addGoal, getGoals, deleteGoal, updateGoal, addGoalContribution, deleteGoalContribution,
     getAllMonths, currentMonth, previousMonth
 } from '../transactions.js';
@@ -12,6 +13,7 @@ import { exportSpreadsheet } from '../spreadsheet.js';
 import { findUserById, updateUser, setEmailOptOut, getOrCreateUnsubToken } from '../users.js';
 import { requirePremium } from '../middleware/auth.js';
 import { enviarEmailMetaConcluida } from '../automacoes/automacoes_email/meta-concluida.js';
+import { syncInvestmentsForUser } from '../automacoes/market-sync.js';
 
 const router = Router();
 
@@ -190,9 +192,7 @@ router.get('/categories/:type', (req, res) => {
 // GET /api/investments
 router.get('/investments', (req, res) => {
     try {
-        const userId = req.user.sub;
-        const { month } = req.query;
-        res.json(getInvestments(userId, { month }));
+        res.json(getInvestments(req.user.sub));
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -203,16 +203,69 @@ router.get('/investments/total', (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// GET /api/investments/market-options?type=stock|crypto|tesouro
+// Cache em memória de 1 hora para não sobrecarregar APIs externas
+const _marketOptionsCache = {};
+router.get('/investments/market-options', async (req, res) => {
+    const { type } = req.query;
+    if (!['stock', 'crypto', 'tesouro'].includes(type))
+        return res.status(400).json({ error: 'Tipo inválido. Use: stock, crypto ou tesouro' });
+
+    const now = Date.now();
+    if (_marketOptionsCache[type] && (now - _marketOptionsCache[type].ts) < 3600000)
+        return res.json(_marketOptionsCache[type].data);
+
+    try {
+        let data;
+        if (type === 'stock') {
+            const r = await fetch('https://brapi.dev/api/available');
+            const j = await r.json();
+            data = (j.stocks || []).map(t => ({ id: t, label: t }));
+        } else if (type === 'crypto') {
+            const r = await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=brl&order=market_cap_desc&per_page=100&page=1');
+            const j = await r.json();
+            data = j.map(c => ({ id: c.id, label: `${c.name} (${c.symbol.toUpperCase()})` }));
+        } else if (type === 'tesouro') {
+            const r = await fetch('https://www.tesourodireto.com.br/json/br/com/b3/tesourodireto/component/app/rates/json/index.json');
+            const j = await r.json();
+            const bonds = j?.response?.TrsrBdTradgList || [];
+            data = bonds.map(b => ({ id: b.TrsrBd?.nm, label: b.TrsrBd?.nm })).filter(b => b.id);
+        }
+        _marketOptionsCache[type] = { ts: now, data };
+        res.json(data);
+    } catch (e) {
+        res.status(502).json({ error: `Erro ao buscar opções de mercado: ${e.message}` });
+    }
+});
+
+// POST /api/investments/sync  — atualiza cotações do usuário logado via APIs de mercado
+router.post('/investments/sync', async (req, res) => {
+    try {
+        const results = await syncInvestmentsForUser(req.user.sub);
+        res.json({ ok: true, results });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // POST /api/investments
 router.post('/investments', (req, res) => {
     try {
         const userId = req.user.sub;
-        const { description, amount, category, date } = req.body;
-        if (!description || !amount || !category)
-            return res.status(400).json({ error: 'Campos obrigatórios: description, amount, category' });
-        const val = parseFloat(String(amount).replace(',', '.'));
+        const { description, category, initialAmount, startDate, marketType, marketId, rateInfo } = req.body;
+        if (!description || !initialAmount || !category)
+            return res.status(400).json({ error: 'Campos obrigatórios: description, initialAmount, category' });
+        if (marketType && marketType !== 'manual' && req.user.plan !== 'premium' && req.user.role !== 'admin')
+            return res.status(403).json({ error: 'Cotações automáticas disponíveis apenas no plano Premium.' });
+        const val = parseFloat(String(initialAmount).replace(',', '.'));
         if (isNaN(val) || val <= 0) return res.status(400).json({ error: 'Valor inválido' });
-        res.status(201).json(addInvestment(userId, { description: String(description).trim(), amount: val, category, date }));
+        res.status(201).json(addInvestment(userId, {
+            description: String(description).trim(),
+            category,
+            initialAmount: val,
+            startDate,
+            marketType: marketType || 'manual',
+            marketId: marketId || null,
+            rateInfo: rateInfo || null,
+        }));
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -220,13 +273,19 @@ router.post('/investments', (req, res) => {
 router.put('/investments/:id', (req, res) => {
     try {
         const userId = req.user.sub;
-        const { description, amount, category, date } = req.body;
-        if (amount !== undefined) {
-            const val = parseFloat(String(amount).replace(',', '.'));
+        const { description, category, initialAmount, startDate, marketType, marketId, rateInfo } = req.body;
+        if (marketType && marketType !== 'manual' && req.user.plan !== 'premium' && req.user.role !== 'admin')
+            return res.status(403).json({ error: 'Cotações automáticas disponíveis apenas no plano Premium.' });
+        if (initialAmount !== undefined) {
+            const val = parseFloat(String(initialAmount).replace(',', '.'));
             if (isNaN(val) || val <= 0) return res.status(400).json({ error: 'Valor inválido' });
-            req.body.amount = val;
+            req.body.initialAmount = val;
         }
-        const inv = updateInvestment(userId, req.params.id, { description, amount: req.body.amount, category, date });
+        const inv = updateInvestment(userId, req.params.id, {
+            description, category,
+            initialAmount: req.body.initialAmount,
+            startDate, marketType, marketId, rateInfo,
+        });
         inv ? res.json(inv) : res.status(404).json({ error: 'Não encontrado' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -236,6 +295,38 @@ router.delete('/investments/:id', (req, res) => {
     try {
         const ok = deleteInvestment(req.user.sub, req.params.id);
         ok ? res.json({ ok: true }) : res.status(404).json({ error: 'Não encontrado' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/investments/:id/contributions
+router.post('/investments/:id/contributions', (req, res) => {
+    try {
+        const { amount, date, note } = req.body;
+        if (!amount) return res.status(400).json({ error: 'amount obrigatório' });
+        const val = parseFloat(String(amount).replace(',', '.'));
+        if (isNaN(val) || val <= 0) return res.status(400).json({ error: 'Valor inválido' });
+        const inv = addInvestmentContribution(req.user.sub, req.params.id, { amount: val, date, note });
+        inv ? res.json(inv) : res.status(404).json({ error: 'Não encontrado' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// DELETE /api/investments/:id/contributions/:contribId
+router.delete('/investments/:id/contributions/:contribId', (req, res) => {
+    try {
+        const inv = deleteInvestmentContribution(req.user.sub, req.params.id, req.params.contribId);
+        inv ? res.json(inv) : res.status(404).json({ error: 'Não encontrado' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PATCH /api/investments/:id/value  — atualiza valor atual manualmente
+router.patch('/investments/:id/value', (req, res) => {
+    try {
+        const { currentValue } = req.body;
+        if (currentValue == null) return res.status(400).json({ error: 'currentValue obrigatório' });
+        const val = parseFloat(String(currentValue).replace(',', '.'));
+        if (isNaN(val) || val < 0) return res.status(400).json({ error: 'Valor inválido' });
+        const inv = updateInvestmentCurrentValue(req.user.sub, req.params.id, val);
+        inv ? res.json(inv) : res.status(404).json({ error: 'Não encontrado' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

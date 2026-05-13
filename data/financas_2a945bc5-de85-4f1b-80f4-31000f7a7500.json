@@ -155,19 +155,63 @@
   "investments": [
     {
       "id": "a467750c-0808-42a7-a63f-ba19d5eecea0",
-      "description": "Poupança",
-      "amount": 200,
-      "category": "Poupança",
-      "date": "2026-05-12",
-      "createdAt": "2026-05-12T22:45:32.230Z"
+      "description": "CDB",
+      "amount": 500,
+      "category": "CDB",
+      "date": "2026-01-01",
+      "createdAt": "2026-05-12T22:45:32.230Z",
+      "contributions": [
+        {
+          "id": "f2e9fe7c-72de-407c-825d-9fb338aeb3b3",
+          "amount": 100,
+          "date": "2026-05-13",
+          "note": "",
+          "createdAt": "2026-05-13T14:09:56.228Z"
+        },
+        {
+          "id": "3875410c-0223-496b-856a-b17ac9c9de45",
+          "amount": 200,
+          "date": "2026-01-01",
+          "note": "",
+          "createdAt": "2026-05-13T14:24:16.046Z"
+        },
+        {
+          "id": "8540fbfd-4d9b-4156-b7e0-2300a10df8bd",
+          "amount": 200,
+          "date": "2026-04-13",
+          "note": "",
+          "createdAt": "2026-05-13T14:35:50.247Z"
+        }
+      ],
+      "initialAmount": 500,
+      "startDate": "2026-01-01",
+      "marketType": "cdi",
+      "marketId": "bitcoin",
+      "rateInfo": {
+        "type": "CDI",
+        "rate": 110
+      },
+      "currentValue": 527.179044712334,
+      "lastSyncAt": "2026-05-13T20:15:43.903Z"
     },
     {
-      "id": "b25f5226-114e-4ffb-9bdc-ccd49c0ea4da",
-      "description": "Poupança",
-      "amount": 400,
-      "category": "Poupança",
-      "date": "2026-04-12",
-      "createdAt": "2026-05-12T22:51:24.870Z"
+      "id": "3878c689-7607-46f5-baa2-ced3072b1310",
+      "description": "PETR4",
+      "category": "CDB",
+      "initialAmount": 200,
+      "currentValue": 200,
+      "contributions": [],
+      "startDate": "2026-05-13",
+      "marketType": "cdi",
+      "marketId": null,
+      "rateInfo": {
+        "type": "CDI",
+        "rate": 110
+      },
+      "lastSyncAt": "2026-05-13T15:21:10.867Z",
+      "createdAt": "2026-05-13T15:14:33.710Z",
+      "amount": 200,
+      "date": "2026-05-13"
     }
   ],
   "goals": [

@@ -778,6 +778,45 @@ function bindNav() {
   document.getElementById('addExpenseBtn').addEventListener('click', () => showTransactionModal('expense'));
   document.getElementById('addBillBtn').addEventListener('click', () => showBillModal());
   document.getElementById('addInvestmentBtn').addEventListener('click', () => showInvestmentModal());
+  document.getElementById('syncInvestBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('syncInvestBtn');
+    btn.disabled = true;
+    btn.textContent = '↻ Sincronizando...';
+    try {
+      const res = await api('POST', '/api/investments/sync');
+      const results = res.results || [];
+      const okItems = results.filter(r => r.ok && !r.noData);
+      const noData = results.filter(r => r.noData);
+      const failItems = results.filter(r => !r.ok && !r.skipped);
+      const total = results.filter(r => !r.skipped).length;
+      let msg, msgType;
+      if (failItems.length === 0 && noData.length === 0 && okItems.length > 0) {
+        msg = 'Todas as cotações foram atualizadas';
+        msgType = 'success';
+      } else if (okItems.length > 0) {
+        const nomes = okItems.map(r => r.investment?.description || r.description || r.id.slice(0, 8)).join(', ');
+        msg = `Cotações atualizadas: ${nomes}`;
+        msgType = failItems.length ? 'warning' : 'success';
+      } else if (failItems.length > 0) {
+        msg = `Erro ao atualizar ${failItems.length} investimento(s)`;
+        msgType = 'error';
+      } else {
+        msg = 'Nenhuma cotação foi atualizada';
+        msgType = 'info';
+      }
+      toast(msg, msgType);
+      if (noData.length) {
+        const nomes = noData.map(r => r.description || r.id.slice(0, 8)).join(', ');
+        setTimeout(() => toast(`Não há atualizações para as cotações: ${nomes}. O BCB publica as atualizações somente no dia seguinte.`, 'warning', 7000), 600);
+      }
+      loadInvestments();
+    } catch (err) {
+      toast('Erro ao sincronizar: ' + err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '↻ Sincronizar';
+    }
+  });
   document.getElementById('addGoalBtn').addEventListener('click', () => showGoalModal());
 }
 
@@ -1295,102 +1334,197 @@ async function loadBills() {
 
 // ── Investments ───────────────────────────────────────────────────────────────
 async function loadInvestments() {
-  const [items, totalData] = await Promise.all([
-    api('GET', `/api/investments?month=${state.month}`),
-    api('GET', '/api/investments/total')
-  ]);
-
-  const monthTotal = items.reduce((s, i) => s + i.amount, 0);
+  const grid = document.getElementById('invest-grid');
   const totalEl = document.getElementById('investments-total');
-  totalEl.textContent = `Investido em ${fmtMonth(state.month)}: ${fmt(monthTotal)} · Total acumulado: ${fmt(totalData.total)}`;
+  grid.innerHTML = loader();
 
-  const container = document.getElementById('investments-table');
-
-  if (!items.length) {
-    container.innerHTML = emptyState(`Nenhum investimento em ${fmtMonth(state.month)}`);
+  let items;
+  try {
+    items = await api('GET', '/api/investments');
+  } catch (err) {
+    grid.innerHTML = emptyState(`Erro ao carregar investimentos: ${err.message}`);
     return;
   }
 
-  // Group totals by category
-  const byCategory = {};
-  items.forEach(i => { byCategory[i.category] = (byCategory[i.category] || 0) + i.amount; });
+  if (!items || !items.length) {
+    grid.innerHTML = emptyState('Nenhum investimento cadastrado. Adicione sua carteira!');
+    totalEl.textContent = 'Total investido: R$ 0,00';
+    return;
+  }
 
-  container.innerHTML = `
-    <div class="invest-summary">
-      ${Object.entries(byCategory).map(([cat, val]) => `
-        <div class="invest-summary__item">
-          <span class="invest-summary__cat">${esc(cat)}</span>
-          <span class="invest-summary__val">${fmt(val)}</span>
-        </div>
-      `).join('')}
-    </div>
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Data</th>
-          <th>Descri\u00e7\u00e3o</th>
-          <th>Tipo</th>
-          <th style="text-align:right">Valor</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        ${items.map(i => `
-          <tr>
-            <td style="color:var(--text-2);width:100px">${fmtDate(i.date)}</td>
-            <td>${esc(i.description)}</td>
-            <td><span class="badge badge-invest">${esc(i.category)}</span></td>
-            <td style="text-align:right" class="amount invest">${fmt(i.amount)}</td>
-            <td>
-              <button class="icon-btn" data-edit-invest='${JSON.stringify({ id: i.id, description: i.description, amount: i.amount, category: i.category, date: i.date })}' aria-label="Editar">
-                <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-              </button>
-              <button class="icon-btn danger" data-del-invest="${i.id}" aria-label="Excluir">
-                <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-              </button>
-            </td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
-  `;
+  const totalInvestido = items.reduce((s, i) => s + (i.initialAmount || 0), 0);
+  const totalAtual = items.reduce((s, i) => s + (i.currentValue ?? i.initialAmount ?? 0), 0);
+  const totalGain = totalAtual - totalInvestido;
+  const gainArrow = totalGain >= 0 ? '▲' : '▼';
+  const gainColor = totalGain >= 0 ? 'var(--income)' : 'var(--expense)';
+  totalEl.innerHTML = `Investido: <strong>${fmt(totalInvestido)}</strong> · Atual: <strong>${fmt(totalAtual)}</strong> · <span style="color:${gainColor}">${gainArrow} ${fmt(Math.abs(totalGain))}</span>`;
 
-  const fresh = container.cloneNode(false);
-  fresh.innerHTML = container.innerHTML;
-  container.replaceWith(fresh);
-  fresh.addEventListener('click', async e => {
-    const editBtn = e.target.closest('[data-edit-invest]');
-    const delBtn = e.target.closest('[data-del-invest]');
-    if (editBtn) {
-      showEditInvestmentModal(JSON.parse(editBtn.dataset.editInvest));
-    } else if (delBtn) {
-      if (!await confirmDelete('Tem certeza que deseja excluir este investimento?')) return;
+  grid.innerHTML = items.map(renderInvestCard).join('');
+
+  grid.querySelectorAll('[data-invest-contrib]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const inv = items.find(i => i.id === btn.dataset.investContrib);
+      if (inv) showInvestContribModal(inv);
+    });
+  });
+
+  grid.querySelectorAll('[data-invest-value]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const inv = items.find(i => i.id === btn.dataset.investValue);
+      if (inv) showInvestValueModal(inv);
+    });
+  });
+
+  const freshGrid = grid.cloneNode(false);
+  freshGrid.innerHTML = grid.innerHTML;
+  grid.replaceWith(freshGrid);
+
+  freshGrid.querySelectorAll('[data-invest-contrib]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const inv = items.find(i => i.id === btn.dataset.investContrib);
+      if (inv) showInvestContribModal(inv);
+    });
+  });
+
+  freshGrid.querySelectorAll('[data-edit-invest]').forEach(btn => {
+    btn.addEventListener('click', () => showEditInvestmentModal(JSON.parse(btn.dataset.editInvest)));
+  });
+
+  freshGrid.querySelectorAll('[data-del-invest]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!await confirmDelete('Excluir este investimento?')) return;
       try {
-        await api('DELETE', `/api/investments/${delBtn.dataset.delInvest}`);
+        await api('DELETE', `/api/investments/${btn.dataset.delInvest}`);
         toast('Investimento excluído', 'success');
         loadInvestments();
       } catch (err) { toast(err.message, 'error'); }
-    }
+    });
   });
 }
 
-// ── Investment modal ──────────────────────────────────────────────────────────
-function showInvestmentModal() {
-  const cats = state.categories.investment || [];
+function investGainColor(gain) {
+  if (gain > 0) return '#22c55e';
+  if (gain < 0) return '#ef4444';
+  return 'var(--text-3)';
+}
 
+function renderInvestCard(inv) {
+  const invested = inv.initialAmount || 0;
+  const current = inv.currentValue ?? invested;
+  const gain = current - invested;
+  const gainPct = invested > 0 ? ((gain / invested) * 100) : 0;
+  const gainColor = investGainColor(gain);
+  const barPct = invested > 0 ? Math.min(200, (current / invested) * 100) : 100;
+  const barColor = gain >= 0 ? '#22c55e' : '#ef4444';
+  const arrow = gain > 0 ? '▲' : gain < 0 ? '▼' : '─';
+  const contribs = inv.contributions || [];
+  const contribTotal = contribs.reduce((s, c) => s + c.amount, 0);
+  const lastSync = inv.lastSyncAt ? new Date(inv.lastSyncAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : null;
+
+  const marketBadge = {
+    stock: '📈 Ação/FII',
+    crypto: '₿ Cripto',
+    cdi: '🏦 Renda Fixa CDI',
+    tesouro: '🇧🇷 Tesouro Direto',
+    manual: '✏️ Manual',
+  }[inv.marketType || 'manual'] || '✏️ Manual';
+
+  const editSvg = `<svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+  const trashSvg = `<svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
+
+  return `
+    <div class="invest-card" data-invest-id="${inv.id}">
+      <div class="invest-card__top">
+        <div>
+          <div class="invest-card__name">${esc(inv.description)}</div>
+          <div class="invest-card__cat">${esc(inv.category)} · <span class="invest-market-badge">${marketBadge}</span></div>
+        </div>
+        <div style="text-align:right">
+          <div class="invest-card__value" style="color:${gainColor}">${arrow} ${gainPct >= 0 ? '+' : ''}${gainPct.toFixed(2)}%</div>
+          <div class="invest-card__sub">${fmt(current)}</div>
+        </div>
+      </div>
+      <div class="invest-bar">
+        <div class="invest-bar__fill" style="width:${Math.min(100, barPct)}%;background:${barColor}"></div>
+      </div>
+      <div class="invest-card__stats">
+        <div class="invest-stat">
+          <span class="invest-stat__label">Investido</span>
+          <span class="invest-stat__val">${fmt(invested)}</span>
+        </div>
+        <div class="invest-stat">
+          <span class="invest-stat__label">Valor atual</span>
+          <span class="invest-stat__val" style="color:${gainColor}">${fmt(current)}</span>
+        </div>
+        <div class="invest-stat">
+          <span class="invest-stat__label">Rendimento</span>
+          <span class="invest-stat__val" style="color:${gainColor}">${gain >= 0 ? '+' : ''}${fmt(gain)}</span>
+        </div>
+      </div>
+      <div class="invest-card__meta">
+        <span class="invest-meta__item">📅 Desde ${inv.startDate ? inv.startDate.split('-').reverse().join('/') : '—'}</span>
+        ${contribs.length > 0 ? `<span class="invest-meta__item">💰 ${contribs.length} aporte${contribs.length !== 1 ? 's' : ''} (${fmt(contribTotal)})</span>` : ''}
+        ${lastSync ? `<span class="invest-meta__item">🔄 ${lastSync}</span>` : ''}
+      </div>
+      <div class="invest-card__actions">
+        <button class="invest-action-btn" data-invest-contrib="${inv.id}">Aportes${contribs.length > 0 ? ` (${contribs.length})` : ''}</button>
+        <button class="icon-btn" data-edit-invest='${JSON.stringify({ id: inv.id, description: inv.description, category: inv.category, initialAmount: inv.initialAmount, startDate: inv.startDate, marketType: inv.marketType, marketId: inv.marketId, rateInfo: inv.rateInfo })}' aria-label="Editar">${editSvg}</button>
+        <button class="icon-btn danger" data-del-invest="${inv.id}" aria-label="Excluir">${trashSvg}</button>
+      </div>
+    </div>`;
+}
+
+// ── Atualizar valor manualmente ────────────────────────────────────────────────
+function showInvestValueModal(inv) {
   openModal(`
-    <div class="modal-title">+ Adicionar Investimento</div>
-    <form id="invest-form">
+    <div class="modal-title">Atualizar Valor — ${esc(inv.description)}</div>
+    <p style="font-size:13px;color:var(--text-3);margin:0 0 16px">Informe o valor atual de mercado do investimento.</p>
+    <form id="invest-value-form">
       <div class="form-group">
-        <label>Tipo</label>
-        <select class="form-select" name="category" required>
-          ${cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('')}
-        </select>
+        <label>Valor atual (R$)</label>
+        <input class="form-input" name="currentValue" type="number" step="0.01" min="0" value="${inv.currentValue ?? inv.initialAmount ?? 0}" required />
       </div>
-      <div class="form-group">
-        <label>Descri\u00e7\u00e3o</label>
-        <input class="form-input" name="description" type="text" placeholder="Ex: CDB Banco Inter 12%" required minlength="2" />
+      <div class="form-footer">
+        <button type="button" class="btn btn-ghost" id="cancelInvestValueBtn">Cancelar</button>
+        <button type="submit" class="btn btn-invest">Salvar</button>
       </div>
+    </form>
+  `);
+  document.getElementById('cancelInvestValueBtn').addEventListener('click', closeModal);
+  document.getElementById('invest-value-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const val = parseFloat(e.target.currentValue.value);
+    try {
+      await api('PATCH', `/api/investments/${inv.id}/value`, { currentValue: val });
+      closeModal();
+      toast('Valor atualizado!', 'success');
+      loadInvestments();
+    } catch (err) { toast(err.message, 'error'); }
+  });
+}
+
+// ── Modal de aportes ──────────────────────────────────────────────────────────
+function showInvestContribModal(inv) {
+  const all = (inv.contributions || []).slice().reverse();
+  const rows = all.map(c => `
+    <tr>
+      <td>${c.date ? c.date.split('-').reverse().join('/') : '—'}</td>
+      <td>${fmt(c.amount)}</td>
+      <td>${esc(c.note || '—')}</td>
+      <td><button class="icon-btn danger btn-xs" data-del-inv-contrib="${c.id}" title="Remover">✕</button></td>
+    </tr>`).join('');
+  const total = all.reduce((s, c) => s + c.amount, 0);
+  openModal(`
+    <div class="modal-title">Aportes — ${esc(inv.description)}</div>
+    <p style="font-size:12px;color:var(--text-3);margin:0 0 8px">Total aportado: <strong>${fmt((inv.initialAmount || 0))}</strong> (inicial + aportes)</p>
+    ${all.length > 0 ? `
+    <table class="data-table contributions-table" id="invContribsTable">
+      <thead><tr><th>Data</th><th>Valor</th><th>Nota</th><th></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>` : `<p style="font-size:13px;color:var(--text-3)">Nenhum aporte adicionado ainda.</p>`}
+    <hr style="border:none;border-top:1px solid var(--border);margin:14px 0">
+    <div class="modal-title" style="font-size:14px;margin-bottom:10px">Novo aporte</div>
+    <form id="inv-contrib-form">
       <div class="form-row">
         <div class="form-group">
           <label>Valor (R$)</label>
@@ -1401,6 +1535,161 @@ function showInvestmentModal() {
           <input class="form-input" name="date" type="date" value="${todayISO()}" required />
         </div>
       </div>
+      <div class="form-group">
+        <label>Nota (opcional)</label>
+        <input class="form-input" name="note" type="text" placeholder="Ex: aporte mensal" />
+      </div>
+      <div class="form-footer">
+        <button type="button" class="btn btn-ghost" id="closeInvContribBtn">Fechar</button>
+        <button type="submit" class="btn btn-invest">Adicionar aporte</button>
+      </div>
+    </form>
+  `);
+  document.getElementById('closeInvContribBtn').addEventListener('click', closeModal);
+  const table = document.getElementById('invContribsTable');
+  if (table) {
+    table.addEventListener('click', async e => {
+      const btn = e.target.closest('[data-del-inv-contrib]');
+      if (!btn) return;
+      if (!await confirmDelete('Remover este aporte?')) return;
+      await api('DELETE', `/api/investments/${inv.id}/contributions/${btn.dataset.delInvContrib}`);
+      toast('Aporte removido', 'success');
+      closeModal();
+      loadInvestments();
+    });
+  }
+  document.getElementById('inv-contrib-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    try {
+      await api('POST', `/api/investments/${inv.id}/contributions`, {
+        amount: fd.get('amount'),
+        date: fd.get('date'),
+        note: fd.get('note'),
+      });
+      closeModal();
+      toast('Aporte adicionado!', 'success');
+      loadInvestments();
+    } catch (err) { toast(err.message, 'error'); }
+  });
+}
+
+// ── Helpers compartilhados para seleção de ativo de mercado ──────────────────
+
+const INVEST_MARKET_CONFIG = {
+  stock: { idLabel: 'Ação / FII (B3)', idHint: 'Selecione o ticker do ativo na B3', qty: true, qtyLabel: 'Quantidade de ações/cotas', rate: false },
+  crypto: { idLabel: 'Criptomoeda', idHint: 'Selecione a criptomoeda', qty: true, qtyLabel: 'Quantidade de moedas', rate: false },
+  cdi: { idLabel: null, idHint: '', qty: false, qtyLabel: '', rate: true },
+  tesouro: { idLabel: 'Título do Tesouro', idHint: 'Selecione o título disponível', qty: true, qtyLabel: 'Quantidade de títulos', rate: false },
+  manual: { idLabel: null, idHint: '', qty: false, qtyLabel: '', rate: false },
+};
+
+async function loadMarketOptions(type, selectEl, currentMarketId) {
+  selectEl.innerHTML = '<option value="" disabled selected>Carregando...</option>';
+  selectEl.disabled = true;
+  try {
+    const options = await api('GET', `/api/investments/market-options?type=${type}`);
+    selectEl.innerHTML = options.map(o =>
+      `<option value="${esc(o.id)}"${o.id === currentMarketId ? ' selected' : ''}>${esc(o.label)}</option>`
+    ).join('');
+    // Se o valor atual não está na lista, insere manualmente no topo
+    if (currentMarketId && !options.find(o => o.id === currentMarketId)) {
+      const opt = new Option(currentMarketId, currentMarketId, true, true);
+      selectEl.insertBefore(opt, selectEl.firstChild);
+    }
+  } catch (e) {
+    selectEl.innerHTML = '<option value="" disabled>Erro ao carregar — verifique a conexão</option>';
+  } finally {
+    selectEl.disabled = false;
+  }
+}
+
+function setupMarketTypeFields({ typeEl, idGroup, idLabel, selectEl, idHint, rateGroup, qtyGroup, qtyLabelEl, currentMarketId = null }) {
+  let pendingId = currentMarketId;
+  async function update() {
+    const type = typeEl.value;
+    const cfg = INVEST_MARKET_CONFIG[type] || INVEST_MARKET_CONFIG.manual;
+    if (cfg.idLabel) {
+      idGroup.style.display = '';
+      idLabel.textContent = cfg.idLabel;
+      idHint.textContent = cfg.idHint;
+      selectEl.required = true;
+      await loadMarketOptions(type, selectEl, pendingId);
+      pendingId = null;
+    } else {
+      idGroup.style.display = 'none';
+      selectEl.required = false;
+    }
+    rateGroup.style.display = cfg.rate ? '' : 'none';
+    qtyGroup.style.display = cfg.qty ? '' : 'none';
+    if (cfg.qty) qtyLabelEl.textContent = cfg.qtyLabel;
+  }
+  typeEl.addEventListener('change', update);
+  update();
+}
+
+// ── Modal de cadastro ─────────────────────────────────────────────────────────
+function showInvestmentModal() {
+  const cats = state.categories.investment || [];
+  const isPremium = getUserPlan() === 'premium' || getTokenPayload()?.role === 'admin';
+  const marketTypeSelect = isPremium
+    ? `<select class="form-select" name="marketType" id="investMarketType" required>
+            <option value="manual">✏️ Manual</option>
+            <option value="stock">📈 Ação / FII (B3)</option>
+            <option value="crypto">₿ Criptomoeda</option>
+            <option value="cdi">🏦 Renda Fixa CDI</option>
+            <option value="tesouro">🇧🇷 Tesouro Direto</option>
+          </select>`
+    : `<select class="form-select" name="marketType" id="investMarketType" disabled>
+            <option value="manual" selected>✏️ Manual</option>
+          </select>
+          <input type="hidden" name="marketType" value="manual">
+          <small class="form-hint">🔒 Cotações automáticas disponíveis no plano Premium</small>`;
+  openModal(`
+    <div class="modal-title">+ Adicionar Investimento</div>
+    <form id="invest-form">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Tipo de ativo</label>
+          ${marketTypeSelect}
+        </div>
+        <div class="form-group">
+          <label>Categoria</label>
+          <select class="form-select" name="category" required>
+            ${cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Descrição</label>
+        <input class="form-input" name="description" type="text" placeholder="Ex: PETR4, Bitcoin, CDB Inter 12%" required minlength="2" />
+      </div>
+      <div id="investMarketIdGroup" class="form-group" style="display:none">
+        <label id="investMarketIdLabel">Ativo</label>
+        <select name="marketId" class="form-select" id="investMarketIdSelect">
+          <option value="" disabled selected>Selecione o tipo primeiro</option>
+        </select>
+        <small class="form-hint" id="investMarketIdHint"></small>
+      </div>
+      <div id="investRateGroup" class="form-group" style="display:none">
+        <label>% do CDI contratado</label>
+        <input class="form-input" name="rateValue" type="number" step="0.1" min="1" max="200" placeholder="Ex: 110" />
+        <small class="form-hint">Ex: 110 para 110% do CDI</small>
+      </div>
+      <div id="investQtyGroup" class="form-group" style="display:none">
+        <label id="investQtyLabel">Quantidade</label>
+        <input class="form-input" name="quantity" type="number" step="0.00000001" min="0" placeholder="Ex: 100 ações" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Valor inicial (R$)</label>
+          <input class="form-input" name="initialAmount" type="number" step="0.01" min="0.01" placeholder="0,00" required />
+        </div>
+        <div class="form-group">
+          <label>Data inicial</label>
+          <input class="form-input" name="startDate" type="date" value="${todayISO()}" required />
+        </div>
+      </div>
       <div class="form-footer">
         <button type="button" class="btn btn-ghost" id="cancelInvestBtn">Cancelar</button>
         <button type="submit" class="btn btn-invest">Salvar</button>
@@ -1408,16 +1697,43 @@ function showInvestmentModal() {
     </form>
   `);
 
+  // Controla campos dinâmicos por tipo de ativo (apenas premium)
+  if (isPremium) {
+    setupMarketTypeFields({
+      typeEl: document.getElementById('investMarketType'),
+      idGroup: document.getElementById('investMarketIdGroup'),
+      idLabel: document.getElementById('investMarketIdLabel'),
+      selectEl: document.getElementById('investMarketIdSelect'),
+      idHint: document.getElementById('investMarketIdHint'),
+      rateGroup: document.getElementById('investRateGroup'),
+      qtyGroup: document.getElementById('investQtyGroup'),
+      qtyLabelEl: document.getElementById('investQtyLabel'),
+    });
+  }
+
   document.getElementById('cancelInvestBtn').addEventListener('click', closeModal);
   document.getElementById('invest-form').addEventListener('submit', async e => {
     e.preventDefault();
     const fd = new FormData(e.target);
+    const mType = fd.get('marketType');
+    const cfg = INVEST_MARKET_CONFIG[mType] || INVEST_MARKET_CONFIG.manual;
+    let rateInfo = null;
+    if (mType === 'cdi') {
+      const rv = parseFloat(fd.get('rateValue'));
+      if (!isNaN(rv)) rateInfo = { type: 'CDI', rate: rv };
+    } else if (cfg.qty) {
+      const qty = parseFloat(fd.get('quantity'));
+      if (!isNaN(qty) && qty > 0) rateInfo = { quantity: qty };
+    }
     try {
       await api('POST', '/api/investments', {
         description: fd.get('description'),
-        amount: fd.get('amount'),
+        initialAmount: fd.get('initialAmount'),
         category: fd.get('category'),
-        date: fd.get('date')
+        startDate: fd.get('startDate'),
+        marketType: mType,
+        marketId: fd.get('marketId') || null,
+        rateInfo,
       });
       closeModal();
       toast('Investimento adicionado!', 'success');
@@ -1426,31 +1742,70 @@ function showInvestmentModal() {
   });
 }
 
-// ── Edit Investment modal ─────────────────────────────────────────────────────
+// ── Modal de edição ────────────────────────────────────────────────────────────
 function showEditInvestmentModal(inv) {
   const cats = state.categories.investment || [];
+  const curMarket = inv.marketType || 'manual';
+  const curRateVal = inv.rateInfo?.rate ?? '';
+  const curQty = inv.rateInfo?.quantity ?? '';
+  const isPremium = getUserPlan() === 'premium' || getTokenPayload()?.role === 'admin';
+  const editMarketTypeSelect = isPremium
+    ? `<select class="form-select" name="marketType" id="editInvestMarketType">
+            <option value="manual" ${curMarket === 'manual' ? 'selected' : ''}>✏️ Manual</option>
+            <option value="stock" ${curMarket === 'stock' ? 'selected' : ''}>📈 Ação / FII</option>
+            <option value="crypto" ${curMarket === 'crypto' ? 'selected' : ''}>₿ Cripto</option>
+            <option value="cdi" ${curMarket === 'cdi' ? 'selected' : ''}>🏦 Renda Fixa CDI</option>
+            <option value="tesouro" ${curMarket === 'tesouro' ? 'selected' : ''}>🇧🇷 Tesouro Direto</option>
+          </select>`
+    : `<select class="form-select" name="marketType" id="editInvestMarketType" disabled>
+            <option value="manual" selected>✏️ Manual</option>
+          </select>
+          <input type="hidden" name="marketType" value="manual">
+          <small class="form-hint">🔒 Cotações automáticas disponíveis no plano Premium</small>`;
 
   openModal(`
     <div class="modal-title">Editar Investimento</div>
     <form id="edit-invest-form">
-      <div class="form-group">
-        <label>Tipo</label>
-        <select class="form-select" name="category" required>
-          ${cats.map(c => `<option value="${esc(c)}"${c === inv.category ? ' selected' : ''}>${esc(c)}</option>`).join('')}
-        </select>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Tipo de ativo</label>
+          ${editMarketTypeSelect}
+        </div>
+        <div class="form-group">
+          <label>Categoria</label>
+          <select class="form-select" name="category" required>
+            ${cats.map(c => `<option value="${esc(c)}"${c === inv.category ? ' selected' : ''}>${esc(c)}</option>`).join('')}
+          </select>
+        </div>
       </div>
       <div class="form-group">
-        <label>Descri\u00e7\u00e3o</label>
+        <label>Descrição</label>
         <input class="form-input" name="description" type="text" value="${esc(inv.description)}" required minlength="2" />
+      </div>
+      <div id="editInvestMarketIdGroup" class="form-group" style="display:none">
+        <label id="editInvestMarketIdLabel">Ativo</label>
+        <select name="marketId" class="form-select" id="editInvestMarketIdSelect">
+          <option value="" disabled selected>Selecione o tipo primeiro</option>
+        </select>
+        <small class="form-hint" id="editInvestMarketIdHint"></small>
+      </div>
+      <div id="editInvestRateGroup" class="form-group" style="display:none">
+        <label>% do CDI contratado</label>
+        <input class="form-input" name="rateValue" type="number" step="0.1" min="1" max="200" value="${curRateVal}" placeholder="Ex: 110" />
+        <small class="form-hint">Ex: 110 para 110% do CDI</small>
+      </div>
+      <div id="editInvestQtyGroup" class="form-group" style="display:none">
+        <label id="editInvestQtyLabel">Quantidade</label>
+        <input class="form-input" name="quantity" type="number" step="0.00000001" min="0" value="${curQty}" placeholder="Ex: 100 ações" />
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Valor (R$)</label>
-          <input class="form-input" name="amount" type="number" step="0.01" min="0.01" value="${inv.amount}" required />
+          <label>Valor inicial (R$)</label>
+          <input class="form-input" name="initialAmount" type="number" step="0.01" min="0.01" value="${inv.initialAmount || 0}" required />
         </div>
         <div class="form-group">
-          <label>Data</label>
-          <input class="form-input" name="date" type="date" value="${inv.date}" required />
+          <label>Data inicial</label>
+          <input class="form-input" name="startDate" type="date" value="${inv.startDate || ''}" required />
         </div>
       </div>
       <div class="form-footer">
@@ -1460,16 +1815,44 @@ function showEditInvestmentModal(inv) {
     </form>
   `);
 
+  // Mesma lógica de campos dinâmicos do modal de cadastro (apenas premium)
+  if (isPremium) {
+    setupMarketTypeFields({
+      typeEl: document.getElementById('editInvestMarketType'),
+      idGroup: document.getElementById('editInvestMarketIdGroup'),
+      idLabel: document.getElementById('editInvestMarketIdLabel'),
+      selectEl: document.getElementById('editInvestMarketIdSelect'),
+      idHint: document.getElementById('editInvestMarketIdHint'),
+      rateGroup: document.getElementById('editInvestRateGroup'),
+      qtyGroup: document.getElementById('editInvestQtyGroup'),
+      qtyLabelEl: document.getElementById('editInvestQtyLabel'),
+      currentMarketId: inv.marketId || null,
+    });
+  }
+
   document.getElementById('cancelEditInvestBtn').addEventListener('click', closeModal);
   document.getElementById('edit-invest-form').addEventListener('submit', async e => {
     e.preventDefault();
     const fd = new FormData(e.target);
+    const mType = fd.get('marketType');
+    const cfg = INVEST_MARKET_CONFIG[mType] || INVEST_MARKET_CONFIG.manual;
+    let rateInfo = null;
+    if (mType === 'cdi') {
+      const rv = parseFloat(fd.get('rateValue'));
+      if (!isNaN(rv)) rateInfo = { type: 'CDI', rate: rv };
+    } else if (cfg.qty) {
+      const qty = parseFloat(fd.get('quantity'));
+      if (!isNaN(qty) && qty > 0) rateInfo = { quantity: qty };
+    }
     try {
       await api('PUT', `/api/investments/${inv.id}`, {
         description: fd.get('description'),
-        amount: fd.get('amount'),
+        initialAmount: fd.get('initialAmount'),
         category: fd.get('category'),
-        date: fd.get('date')
+        startDate: fd.get('startDate'),
+        marketType: mType,
+        marketId: fd.get('marketId') || null,
+        rateInfo,
       });
       closeModal();
       toast('Investimento atualizado!', 'success');
@@ -2921,13 +3304,13 @@ async function showMyAccountModal() {
 }
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
-function toast(msg, type = 'info') {
+function toast(msg, type = 'info', duration = 3500) {
   const el = document.createElement('div');
   el.className = `toast ${type}`;
   el.textContent = msg;
   const container = document.getElementById('toast-container');
   container.appendChild(el);
-  setTimeout(() => el.remove(), 3500);
+  setTimeout(() => el.remove(), duration);
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

@@ -217,9 +217,13 @@
                 <section class="page hidden" id="page-investments">
                     <div class="page-header">
                         <div class="summary-pill invest" id="investments-total"></div>
-                        <button class="btn btn-invest" id="addInvestmentBtn">+ Adicionar Investimento</button>
+                        <div style="display:flex;gap:8px">
+                            <button class="btn btn-ghost" id="syncInvestBtn" title="Atualizar cotações de mercado">↻
+                                Atualizar Cotações</button>
+                            <button class="btn btn-invest" id="addInvestmentBtn">+ Adicionar</button>
+                        </div>
                     </div>
-                    <div class="card" id="investments-table"></div>
+                    <div class="invest-grid" id="invest-grid"></div>
                 </section>
 
                 <!-- Goals -->
