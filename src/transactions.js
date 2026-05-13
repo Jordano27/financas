@@ -357,6 +357,23 @@ export function markGoalCompletedEmailSent(userId, goalId) {
     return true;
 }
 
+/** Registra que um aviso de vencimento foi enviado para evitar duplicatas.
+ *  billAlerts[billId][YYYY-MM]["7dias"|"hoje"|"vencida"] = true
+ */
+export function markBillAlert(userId, billId, month, tipo) {
+    const db = loadUserDB(userId);
+    if (!db.billAlerts) db.billAlerts = {};
+    if (!db.billAlerts[billId]) db.billAlerts[billId] = {};
+    if (!db.billAlerts[billId][month]) db.billAlerts[billId][month] = {};
+    db.billAlerts[billId][month][tipo] = true;
+    saveUserDB(userId, db);
+}
+
+export function getBillAlerts(userId) {
+    const db = loadUserDB(userId);
+    return db.billAlerts || {};
+}
+
 // ── Month query helpers ───────────────────────────────────────────────────────
 
 export function getAllMonths(userId) {

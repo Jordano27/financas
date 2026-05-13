@@ -56,8 +56,8 @@
       "active": true,
       "createdAt": "2026-05-08T01:50:43.263Z",
       "paidMonths": [
-        "2026-05",
-        "2026-04"
+        "2026-04",
+        "2026-05"
       ]
     },
     {
@@ -69,8 +69,8 @@
       "active": true,
       "createdAt": "2026-05-08T01:51:07.433Z",
       "paidMonths": [
-        "2026-05",
-        "2026-04"
+        "2026-04",
+        "2026-05"
       ]
     },
     {
@@ -82,8 +82,8 @@
       "active": true,
       "createdAt": "2026-05-08T16:17:36.320Z",
       "paidMonths": [
-        "2026-05",
-        "2026-04"
+        "2026-04",
+        "2026-05"
       ]
     },
     {
@@ -95,8 +95,7 @@
       "active": true,
       "createdAt": "2026-05-08T16:18:37.425Z",
       "paidMonths": [
-        "2026-04",
-        "2026-05"
+        "2026-04"
       ]
     },
     {
@@ -134,8 +133,8 @@
       "active": true,
       "createdAt": "2026-05-11T16:55:27.143Z",
       "paidMonths": [
-        "2026-05",
-        "2026-04"
+        "2026-04",
+        "2026-05"
       ]
     },
     {
@@ -149,7 +148,8 @@
       "paidMonths": [
         "2026-04",
         "2026-05"
-      ]
+      ],
+      "monthOverrides": {}
     }
   ],
   "investments": [
@@ -171,54 +171,6 @@
     }
   ],
   "goals": [
-    {
-      "id": "82a0efc4-aedc-49e3-8a76-bd0ad029ee02",
-      "description": "VIAGEM JAPÃO",
-      "targetAmount": 20000,
-      "targetDate": "2027-12-01",
-      "category": "VIAGEM",
-      "savedAmount": 23553.3,
-      "contributions": [
-        {
-          "id": "209ebe68-47cc-4b39-b003-74db2d5c1b1c",
-          "amount": 947.37,
-          "date": "2026-05-11",
-          "note": "werqet",
-          "createdAt": "2026-05-11T16:40:40.477Z"
-        },
-        {
-          "id": "1b870f44-c727-4df0-ae21-ba203b71ed7c",
-          "amount": 897.51,
-          "date": "2026-05-11",
-          "note": "etbrnye",
-          "createdAt": "2026-05-11T16:40:44.616Z"
-        },
-        {
-          "id": "20a83c6f-c081-4202-bd2a-728ee51eec9c",
-          "amount": 850.27,
-          "date": "2026-05-11",
-          "note": "retbryt j",
-          "createdAt": "2026-05-11T16:40:47.825Z"
-        },
-        {
-          "id": "c5dfd77b-912e-432f-af61-52de57e2b55d",
-          "amount": 858.15,
-          "date": "2026-05-12",
-          "note": "",
-          "createdAt": "2026-05-12T12:13:54.949Z"
-        },
-        {
-          "id": "ef445f53-8ea8-4bbd-87d6-199e30e80dbb",
-          "amount": 20000,
-          "date": "2026-05-13",
-          "note": "",
-          "createdAt": "2026-05-13T03:47:35.194Z"
-        }
-      ],
-      "createdAt": "2026-05-11T16:17:18.837Z",
-      "completedEmailSent": true,
-      "completedAt": "2026-05-13T03:10:18.486Z"
-    },
     {
       "id": "d76e0ea0-7ae8-4b21-b80d-43899123689c",
       "description": "VIAGEM EUA",
@@ -273,5 +225,22 @@
       "completedEmailSent": true,
       "completedAt": "2026-05-13T04:01:45.348Z"
     }
-  ]
+  ],
+  "billAlerts": {
+    "f895aa05-4d96-4be7-bc2f-68e83694ee67": {
+      "2026-05": {
+        "vencida": true
+      }
+    },
+    "e454953a-0f57-4b72-a8ff-224e2e276eda": {
+      "2026-05": {
+        "vencida": true
+      }
+    },
+    "193c3d31-c1b4-49d1-8c75-04d4b22d3745": {
+      "2026-05": {
+        "vencida": true
+      }
+    }
+  }
 }
