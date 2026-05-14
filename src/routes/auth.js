@@ -6,8 +6,17 @@ import { findUserByEmail, registerUser, verifyPassword, validateUserInput, unsub
 
 const router = Router();
 
+// Máx 10 tentativas de login por IP a cada 15 minutos
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Muitas tentativas de login. Tente novamente em 15 minutos.' },
+});
+
 // POST /api/auth/login
-router.post('/login', (req, res) => {
+router.post('/login', loginLimiter, (req, res) => {
     const { email, password } = req.body || {};
     if (!email || !password) {
         return res.status(400).json({ error: 'E-mail e senha são obrigatórios' });

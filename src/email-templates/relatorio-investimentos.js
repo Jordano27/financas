@@ -1,39 +1,20 @@
-import { APP_URL } from '../config.js';
+﻿import { APP_URL } from '../config.js';
+import { fmt, fmtPct, escHtml } from './email-helpers.js';
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
-
-function fmt(v) {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
-}
-
-function fmtPct(v) {
-    const n = Number(v);
-    if (isNaN(n)) return '—';
-    const sign = n > 0 ? '+' : '';
-    return `${sign}${n.toFixed(2)}%`;
-}
-
-function escHtml(str) {
-    return String(str ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-}
-
-function fmtDate(iso) {
-    if (!iso) return '—';
-    const d = new Date(iso);
-    if (isNaN(d)) return '—';
-    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+// fmtDateTime: formata ISO com hora e minuto (especifico deste template)
+function fmtDateTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d)) return '—';
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 const MARKET_LABEL = {
-    stock: '📈 Ação / FII',
-    crypto: '₿ Cripto',
-    cdi: '🏦 Renda Fixa CDI',
-    tesouro: '🇧🇷 Tesouro Direto',
-    manual: '✏️ Manual',
+  stock: '📈 Ação / FII',
+  crypto: '₿ Cripto',
+  cdi: '🏦 Renda Fixa CDI',
+  tesouro: '🇧🇷 Tesouro Direto',
+  manual: '✏️ Manual',
 };
 
 /**
@@ -44,28 +25,28 @@ const MARKET_LABEL = {
  * @param {string} opts.unsubToken
  */
 export function buildRelatorioInvestimentosEmail({ userName, investments, unsubToken }) {
-    const appUrl = APP_URL || 'http://localhost:3000';
-    const unsubUrl = `${appUrl}/api/auth/unsubscribe?token=${encodeURIComponent(unsubToken)}`;
-    const today = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+  const appUrl = APP_URL || 'http://localhost:3000';
+  const unsubUrl = `${appUrl}/api/auth/unsubscribe?token=${encodeURIComponent(unsubToken)}`;
+  const today = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
 
-    const totalInvestido = investments.reduce((s, i) => s + (i.initialAmount || 0), 0);
-    const totalAtual = investments.reduce((s, i) => s + (i.currentValue || i.initialAmount || 0), 0);
-    const totalGain = totalAtual - totalInvestido;
-    const totalPct = totalInvestido > 0 ? (totalGain / totalInvestido) * 100 : 0;
-    const gainColor = totalGain >= 0 ? '#16a34a' : '#dc2626';
-    const gainArrow = totalGain >= 0 ? '▲' : '▼';
+  const totalInvestido = investments.reduce((s, i) => s + (i.initialAmount || 0), 0);
+  const totalAtual = investments.reduce((s, i) => s + (i.currentValue || i.initialAmount || 0), 0);
+  const totalGain = totalAtual - totalInvestido;
+  const totalPct = totalInvestido > 0 ? (totalGain / totalInvestido) * 100 : 0;
+  const gainColor = totalGain >= 0 ? '#16a34a' : '#dc2626';
+  const gainArrow = totalGain >= 0 ? '▲' : '▼';
 
-    const rows = investments.map(inv => {
-        const current = inv.currentValue ?? inv.initialAmount ?? 0;
-        const gain = current - (inv.initialAmount || 0);
-        const pct = inv.initialAmount > 0 ? (gain / inv.initialAmount) * 100 : 0;
-        const color = gain >= 0 ? '#16a34a' : '#dc2626';
-        const arrow = gain >= 0 ? '▲' : '▼';
-        const marketLabel = MARKET_LABEL[inv.marketType] || inv.marketType || '—';
-        const rateLabel = inv.rateInfo?.rate ? ` ${inv.rateInfo.rate}% CDI` : '';
-        const noSync = !inv.lastSyncAt && inv.marketType !== 'manual';
+  const rows = investments.map(inv => {
+    const current = inv.currentValue ?? inv.initialAmount ?? 0;
+    const gain = current - (inv.initialAmount || 0);
+    const pct = inv.initialAmount > 0 ? (gain / inv.initialAmount) * 100 : 0;
+    const color = gain >= 0 ? '#16a34a' : '#dc2626';
+    const arrow = gain >= 0 ? '▲' : '▼';
+    const marketLabel = MARKET_LABEL[inv.marketType] || inv.marketType || '—';
+    const rateLabel = inv.rateInfo?.rate ? ` ${inv.rateInfo.rate}% CDI` : '';
+    const noSync = !inv.lastSyncAt && inv.marketType !== 'manual';
 
-        return `
+    return `
       <tr>
         <td style="padding:14px 16px;border-bottom:1px solid #f3f4f6;color:#111827;font-size:14px;font-weight:600;">${escHtml(inv.description)}</td>
         <td style="padding:14px 16px;border-bottom:1px solid #f3f4f6;color:#6b7280;font-size:13px;white-space:nowrap;">${escHtml(marketLabel)}${escHtml(rateLabel)}</td>
@@ -77,9 +58,9 @@ export function buildRelatorioInvestimentosEmail({ userName, investments, unsubT
           ${noSync ? '<br><span style="font-size:11px;color:#9ca3af;">sem dados hoje</span>' : ''}
         </td>
       </tr>`;
-    }).join('');
+  }).join('');
 
-    return `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">

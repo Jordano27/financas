@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { Mutex } from 'async-mutex';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = join(__dirname, '..', 'data');
@@ -14,6 +15,17 @@ const DEFAULT_CATEGORIES = {
     bill: ['Água', 'Luz', 'Internet', 'Telefone', 'Aluguel', 'Condomínio', 'Streaming', 'Cartão de Crédito', 'Academia', 'Seguro', 'Outros'],
     investment: ['Poupança', 'CDB', 'LCI/LCA', 'Tesouro Direto', 'Ações', 'Fundos de Investimento', 'Criptomoedas', 'Outros']
 };
+
+// ── Mutex por usuário (evita escrita concorrente) ─────────────────────────────
+const _mutexes = new Map();
+function getMutex(userId) {
+    if (!_mutexes.has(userId)) _mutexes.set(userId, new Mutex());
+    return _mutexes.get(userId);
+}
+
+export async function withUserLock(userId, fn) {
+    return getMutex(userId).runExclusive(fn);
+}
 
 // ── Banco de dados por usuário ────────────────────────────────────────────────
 const DEFAULT_USER_DB = {

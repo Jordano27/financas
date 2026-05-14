@@ -51,6 +51,28 @@ export function validateUserInput({ name, email, password }) {
     return errors;
 }
 
+/** Valida apenas os campos presentes (para PUT/PATCH parciais). */
+export function validateUserUpdate({ name, email, password }) {
+    const errors = [];
+
+    if (name !== undefined && name.trim().length < 2)
+        errors.push('Nome deve ter pelo menos 2 caracteres');
+
+    if (email !== undefined && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+        errors.push('E-mail inválido');
+
+    if (password !== undefined) {
+        if (password.length < 8)
+            errors.push('Senha deve ter pelo menos 8 caracteres');
+        else if (!/[a-zA-Z]/.test(password))
+            errors.push('Senha deve conter pelo menos uma letra');
+        else if (!/[0-9]/.test(password))
+            errors.push('Senha deve conter pelo menos um número');
+    }
+
+    return errors;
+}
+
 // ── CRUD de usuários ──────────────────────────────────────────────────────────
 
 export function findUserByEmail(email) {

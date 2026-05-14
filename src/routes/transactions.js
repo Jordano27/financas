@@ -1,21 +1,27 @@
-import { Router } from 'express';
+﻿import { Router } from 'express';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { getCategories } from '../db.js';
 import {
     addTransaction, getTransactions, deleteTransaction, updateTransaction,
-    addBill, getBills, deleteBill, toggleBill, toggleBillPaid, updateBill,
-    addInvestment, getInvestments, deleteInvestment, updateInvestment, getTotalInvested,
-    addInvestmentContribution, deleteInvestmentContribution, updateInvestmentCurrentValue,
-    addGoal, getGoals, deleteGoal, updateGoal, addGoalContribution, deleteGoalContribution,
-    getAllMonths, currentMonth, previousMonth
+    getAllMonths, currentMonth, previousMonth,
 } from '../transactions.js';
-import { buildMonthStats, compareMonths, buildAverages, financialHealth, buildHealthAnalysis } from '../reports.js';
+import { getBills } from '../bills.js';
+import { buildMonthStats, compareMonths, buildAverages, financialHealth, buildHealthAnalysis, buildInsights } from '../reports.js';
 import { exportSpreadsheet } from '../spreadsheet.js';
-import { findUserById, updateUser, setEmailOptOut, getOrCreateUnsubToken } from '../users.js';
+import { findUserById, updateUser, setEmailOptOut, validateUserUpdate } from '../users.js';
 import { requirePremium } from '../middleware/auth.js';
-import { enviarEmailMetaConcluida } from '../automacoes/automacoes_email/meta-concluida.js';
-import { syncInvestmentsForUser } from '../automacoes/market-sync.js';
+import { requireFields, parsePositiveFloat } from '../validation.js';
 
 const router = Router();
+
+const exportLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    max: 5,
+    keyGenerator: (req) => req.user?.sub ?? ipKeyGenerator(req),
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Muitas exportações. Tente novamente em 10 minutos.' },
+});
 
 // GET /api/stats/:month
 router.get('/stats/:month', requirePremium, (req, res) => {
@@ -33,8 +39,6 @@ router.get('/months', (req, res) => {
         const userId = req.user.sub;
         const existing = getAllMonths(userId);
         const current = currentMonth();
-
-        // Generate a continuous range from the earliest month to today
         const earliest = existing.length ? existing[0] : current;
         const months = [];
         let [y, m] = earliest.split('-').map(Number);
@@ -51,9 +55,8 @@ router.get('/months', (req, res) => {
 // GET /api/transactions
 router.get('/transactions', (req, res) => {
     try {
-        const userId = req.user.sub;
         const { month, type } = req.query;
-        res.json(getTransactions(userId, { month, type }));
+        res.json(getTransactions(req.user.sub, { month, type }));
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -62,13 +65,12 @@ router.post('/transactions', (req, res) => {
     try {
         const userId = req.user.sub;
         const { type, description, amount, category, date } = req.body;
-        if (!type || !description || !amount || !category)
-            return res.status(400).json({ error: 'Campos obrigatórios: type, description, amount, category' });
+        const check = requireFields(req.body, ['type', 'description', 'amount', 'category']);
+        if (!check.ok) return res.status(400).json({ error: check.message });
         if (!['income', 'expense'].includes(type))
             return res.status(400).json({ error: 'type deve ser income ou expense' });
-        const val = parseFloat(String(amount).replace(',', '.'));
-        if (isNaN(val) || val <= 0)
-            return res.status(400).json({ error: 'Valor inválido' });
+        const val = parsePositiveFloat(amount);
+        if (!val) return res.status(400).json({ error: 'Valor inválido' });
         res.status(201).json(addTransaction(userId, { type, description: String(description).trim(), amount: val, category, date }));
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -76,8 +78,7 @@ router.post('/transactions', (req, res) => {
 // DELETE /api/transactions/:id
 router.delete('/transactions/:id', (req, res) => {
     try {
-        const userId = req.user.sub;
-        const ok = deleteTransaction(userId, req.params.id);
+        const ok = deleteTransaction(req.user.sub, req.params.id);
         ok ? res.json({ ok: true }) : res.status(404).json({ error: 'Não encontrado' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -85,99 +86,14 @@ router.delete('/transactions/:id', (req, res) => {
 // PUT /api/transactions/:id
 router.put('/transactions/:id', (req, res) => {
     try {
-        const userId = req.user.sub;
         const { description, amount, category, date } = req.body;
         if (amount !== undefined) {
-            const val = parseFloat(String(amount).replace(',', '.'));
-            if (isNaN(val) || val <= 0)
-                return res.status(400).json({ error: 'Valor inválido' });
+            const val = parsePositiveFloat(amount);
+            if (!val) return res.status(400).json({ error: 'Valor inválido' });
             req.body.amount = val;
         }
-        const tx = updateTransaction(userId, req.params.id, { description, amount: req.body.amount, category, date });
+        const tx = updateTransaction(req.user.sub, req.params.id, { description, amount: req.body.amount, category, date });
         tx ? res.json(tx) : res.status(404).json({ error: 'Não encontrado' });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// GET /api/bills
-router.get('/bills', (req, res) => {
-    try {
-        const userId = req.user.sub;
-        const month = typeof req.query.month === 'string' && /^\d{4}-\d{2}$/.test(req.query.month)
-            ? req.query.month : null;
-        res.json(getBills(userId, { activeOnly: false, month }));
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// POST /api/bills
-router.post('/bills', (req, res) => {
-    try {
-        const userId = req.user.sub;
-        const { description, amount, category, dueDay } = req.body;
-        if (!description || !amount || !category || !dueDay)
-            return res.status(400).json({ error: 'Campos obrigatórios: description, amount, category, dueDay' });
-        const val = parseFloat(String(amount).replace(',', '.'));
-        if (isNaN(val) || val <= 0) return res.status(400).json({ error: 'Valor inválido' });
-        const day = parseInt(dueDay);
-        if (isNaN(day) || day < 1 || day > 31) return res.status(400).json({ error: 'Dia inválido (1-31)' });
-        res.status(201).json(addBill(userId, { description: String(description).trim(), amount: val, category, dueDay: day }));
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// PATCH /api/bills/:id/toggle
-router.patch('/bills/:id/toggle', (req, res) => {
-    try {
-        const userId = req.user.sub;
-        const month = typeof req.body?.month === 'string' && /^\d{4}-\d{2}$/.test(req.body.month)
-            ? req.body.month : null;
-        const bill = toggleBill(userId, req.params.id, month);
-        bill ? res.json(bill) : res.status(404).json({ error: 'Não encontrado' });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// PATCH /api/bills/:id/paid
-router.patch('/bills/:id/paid', (req, res) => {
-    try {
-        const userId = req.user.sub;
-        const { month } = req.body;
-        if (!month || !/^\d{4}-\d{2}$/.test(month))
-            return res.status(400).json({ error: 'month obrigatório (YYYY-MM)' });
-        const bill = toggleBillPaid(userId, req.params.id, month);
-        bill ? res.json(bill) : res.status(404).json({ error: 'Não encontrado' });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// DELETE /api/bills/:id  (query: ?month=YYYY-MM para excluir só naquele mês)
-router.delete('/bills/:id', (req, res) => {
-    try {
-        const userId = req.user.sub;
-        const month = typeof req.query.month === 'string' && /^\d{4}-\d{2}$/.test(req.query.month)
-            ? req.query.month : null;
-        const ok = deleteBill(userId, req.params.id, month);
-        ok ? res.json({ ok: true }) : res.status(404).json({ error: 'Não encontrado' });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// PUT /api/bills/:id
-router.put('/bills/:id', (req, res) => {
-    try {
-        const userId = req.user.sub;
-        const { description, amount, category, dueDay } = req.body;
-        const month = typeof req.body.month === 'string' && /^\d{4}-\d{2}$/.test(req.body.month)
-            ? req.body.month : null;
-        if (amount !== undefined) {
-            const val = parseFloat(String(amount).replace(',', '.'));
-            if (isNaN(val) || val <= 0)
-                return res.status(400).json({ error: 'Valor inválido' });
-            req.body.amount = val;
-        }
-        if (dueDay !== undefined) {
-            const day = parseInt(dueDay);
-            if (isNaN(day) || day < 1 || day > 31)
-                return res.status(400).json({ error: 'Dia inválido (1-31)' });
-            req.body.dueDay = day;
-        }
-        const bill = updateBill(userId, req.params.id, { description, amount: req.body.amount, category, dueDay: req.body.dueDay, month });
-        bill ? res.json(bill) : res.status(404).json({ error: 'Não encontrado' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -185,149 +101,6 @@ router.put('/bills/:id', (req, res) => {
 router.get('/categories/:type', (req, res) => {
     try { res.json(getCategories(req.params.type)); }
     catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// ── Investments ───────────────────────────────────────────────────────────────
-
-// GET /api/investments
-router.get('/investments', (req, res) => {
-    try {
-        res.json(getInvestments(req.user.sub));
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// GET /api/investments/total
-router.get('/investments/total', (req, res) => {
-    try {
-        res.json({ total: getTotalInvested(req.user.sub) });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// GET /api/investments/market-options?type=stock|crypto|tesouro
-// Cache em memória de 1 hora para não sobrecarregar APIs externas
-const _marketOptionsCache = {};
-router.get('/investments/market-options', async (req, res) => {
-    const { type } = req.query;
-    if (!['stock', 'crypto', 'tesouro'].includes(type))
-        return res.status(400).json({ error: 'Tipo inválido. Use: stock, crypto ou tesouro' });
-
-    const now = Date.now();
-    if (_marketOptionsCache[type] && (now - _marketOptionsCache[type].ts) < 3600000)
-        return res.json(_marketOptionsCache[type].data);
-
-    try {
-        let data;
-        if (type === 'stock') {
-            const r = await fetch('https://brapi.dev/api/available');
-            const j = await r.json();
-            data = (j.stocks || []).map(t => ({ id: t, label: t }));
-        } else if (type === 'crypto') {
-            const r = await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=brl&order=market_cap_desc&per_page=100&page=1');
-            const j = await r.json();
-            data = j.map(c => ({ id: c.id, label: `${c.name} (${c.symbol.toUpperCase()})` }));
-        } else if (type === 'tesouro') {
-            const r = await fetch('https://www.tesourodireto.com.br/json/br/com/b3/tesourodireto/component/app/rates/json/index.json');
-            const j = await r.json();
-            const bonds = j?.response?.TrsrBdTradgList || [];
-            data = bonds.map(b => ({ id: b.TrsrBd?.nm, label: b.TrsrBd?.nm })).filter(b => b.id);
-        }
-        _marketOptionsCache[type] = { ts: now, data };
-        res.json(data);
-    } catch (e) {
-        res.status(502).json({ error: `Erro ao buscar opções de mercado: ${e.message}` });
-    }
-});
-
-// POST /api/investments/sync  — atualiza cotações do usuário logado via APIs de mercado
-router.post('/investments/sync', async (req, res) => {
-    try {
-        const results = await syncInvestmentsForUser(req.user.sub);
-        res.json({ ok: true, results });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// POST /api/investments
-router.post('/investments', (req, res) => {
-    try {
-        const userId = req.user.sub;
-        const { description, category, initialAmount, startDate, marketType, marketId, rateInfo } = req.body;
-        if (!description || !initialAmount || !category)
-            return res.status(400).json({ error: 'Campos obrigatórios: description, initialAmount, category' });
-        if (marketType && marketType !== 'manual' && req.user.plan !== 'premium' && req.user.role !== 'admin')
-            return res.status(403).json({ error: 'Cotações automáticas disponíveis apenas no plano Premium.' });
-        const val = parseFloat(String(initialAmount).replace(',', '.'));
-        if (isNaN(val) || val <= 0) return res.status(400).json({ error: 'Valor inválido' });
-        res.status(201).json(addInvestment(userId, {
-            description: String(description).trim(),
-            category,
-            initialAmount: val,
-            startDate,
-            marketType: marketType || 'manual',
-            marketId: marketId || null,
-            rateInfo: rateInfo || null,
-        }));
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// PUT /api/investments/:id
-router.put('/investments/:id', (req, res) => {
-    try {
-        const userId = req.user.sub;
-        const { description, category, initialAmount, startDate, marketType, marketId, rateInfo } = req.body;
-        if (marketType && marketType !== 'manual' && req.user.plan !== 'premium' && req.user.role !== 'admin')
-            return res.status(403).json({ error: 'Cotações automáticas disponíveis apenas no plano Premium.' });
-        if (initialAmount !== undefined) {
-            const val = parseFloat(String(initialAmount).replace(',', '.'));
-            if (isNaN(val) || val <= 0) return res.status(400).json({ error: 'Valor inválido' });
-            req.body.initialAmount = val;
-        }
-        const inv = updateInvestment(userId, req.params.id, {
-            description, category,
-            initialAmount: req.body.initialAmount,
-            startDate, marketType, marketId, rateInfo,
-        });
-        inv ? res.json(inv) : res.status(404).json({ error: 'Não encontrado' });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// DELETE /api/investments/:id
-router.delete('/investments/:id', (req, res) => {
-    try {
-        const ok = deleteInvestment(req.user.sub, req.params.id);
-        ok ? res.json({ ok: true }) : res.status(404).json({ error: 'Não encontrado' });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// POST /api/investments/:id/contributions
-router.post('/investments/:id/contributions', (req, res) => {
-    try {
-        const { amount, date, note } = req.body;
-        if (!amount) return res.status(400).json({ error: 'amount obrigatório' });
-        const val = parseFloat(String(amount).replace(',', '.'));
-        if (isNaN(val) || val <= 0) return res.status(400).json({ error: 'Valor inválido' });
-        const inv = addInvestmentContribution(req.user.sub, req.params.id, { amount: val, date, note });
-        inv ? res.json(inv) : res.status(404).json({ error: 'Não encontrado' });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// DELETE /api/investments/:id/contributions/:contribId
-router.delete('/investments/:id/contributions/:contribId', (req, res) => {
-    try {
-        const inv = deleteInvestmentContribution(req.user.sub, req.params.id, req.params.contribId);
-        inv ? res.json(inv) : res.status(404).json({ error: 'Não encontrado' });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// PATCH /api/investments/:id/value  — atualiza valor atual manualmente
-router.patch('/investments/:id/value', (req, res) => {
-    try {
-        const { currentValue } = req.body;
-        if (currentValue == null) return res.status(400).json({ error: 'currentValue obrigatório' });
-        const val = parseFloat(String(currentValue).replace(',', '.'));
-        if (isNaN(val) || val < 0) return res.status(400).json({ error: 'Valor inválido' });
-        const inv = updateInvestmentCurrentValue(req.user.sub, req.params.id, val);
-        inv ? res.json(inv) : res.status(404).json({ error: 'Não encontrado' });
-    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // GET /api/me
@@ -343,15 +116,8 @@ router.get('/me', (req, res) => {
 router.put('/me', (req, res) => {
     try {
         const { name, email, password } = req.body || {};
-        if (name && name.trim().length < 2)
-            return res.status(400).json({ error: 'Nome deve ter pelo menos 2 caracteres' });
-        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-            return res.status(400).json({ error: 'E-mail inválido' });
-        if (password) {
-            if (password.length < 8) return res.status(400).json({ error: 'Senha deve ter pelo menos 8 caracteres' });
-            if (!/[a-zA-Z]/.test(password)) return res.status(400).json({ error: 'Senha deve conter letras' });
-            if (!/[0-9]/.test(password)) return res.status(400).json({ error: 'Senha deve conter números' });
-        }
+        const errors = validateUserUpdate({ name, email, password });
+        if (errors.length) return res.status(400).json({ error: errors[0] });
         const updated = updateUser(req.user.sub, { name, email, password });
         res.json(updated);
     } catch (e) { res.status(400).json({ error: e.message }); }
@@ -360,9 +126,8 @@ router.put('/me', (req, res) => {
 // GET /api/comparison/:month
 router.get('/comparison/:month', requirePremium, (req, res) => {
     try {
-        const userId = req.user.sub;
         const prev = previousMonth(req.params.month);
-        res.json(compareMonths(userId, req.params.month, prev));
+        res.json(compareMonths(req.user.sub, req.params.month, prev));
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -375,188 +140,29 @@ router.get('/averages', requirePremium, (req, res) => {
 });
 
 // GET /api/export/:month
-router.get('/export/:month', requirePremium, async (req, res) => {
+router.get('/export/:month', exportLimiter, requirePremium, async (req, res) => {
     try {
-        const userId = req.user.sub;
-        const filepath = await exportSpreadsheet(userId, req.params.month);
+        const filepath = await exportSpreadsheet(req.user.sub, req.params.month);
         res.download(filepath, `financas_${req.params.month}.xlsx`);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── Goals ───────────────────────────────────────────────────────────
-
-// GET /api/goals
-router.get('/goals', (req, res) => {
-    try { res.json(getGoals(req.user.sub)); }
-    catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// POST /api/goals
-router.post('/goals', (req, res) => {
-    try {
-        const { description, targetAmount, targetDate, category } = req.body;
-        if (!description || !targetAmount || !targetDate)
-            return res.status(400).json({ error: 'Campos obrigatórios: description, targetAmount, targetDate' });
-        const val = parseFloat(String(targetAmount).replace(',', '.'));
-        if (isNaN(val) || val <= 0) return res.status(400).json({ error: 'Valor inválido' });
-        res.status(201).json(addGoal(req.user.sub, { description, targetAmount: val, targetDate, category }));
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// PUT /api/goals/:id
-router.put('/goals/:id', (req, res) => {
-    try {
-        const { description, targetAmount, targetDate, category } = req.body;
-        if (targetAmount !== undefined) {
-            const val = parseFloat(String(targetAmount).replace(',', '.'));
-            if (isNaN(val) || val <= 0) return res.status(400).json({ error: 'Valor inválido' });
-            req.body.targetAmount = val;
-        }
-        const goal = updateGoal(req.user.sub, req.params.id, { description, targetAmount: req.body.targetAmount, targetDate, category });
-        goal ? res.json(goal) : res.status(404).json({ error: 'Não encontrado' });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// DELETE /api/goals/:id
-router.delete('/goals/:id', (req, res) => {
-    try {
-        const ok = deleteGoal(req.user.sub, req.params.id);
-        ok ? res.json({ ok: true }) : res.status(404).json({ error: 'Não encontrado' });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// POST /api/goals/:id/contributions
-router.post('/goals/:id/contributions', (req, res) => {
-    try {
-        const { amount, date, note } = req.body;
-        if (!amount) return res.status(400).json({ error: 'amount obrigatório' });
-        const val = parseFloat(String(amount).replace(',', '.'));
-        if (isNaN(val) || val <= 0) return res.status(400).json({ error: 'Valor inválido' });
-        const goal = addGoalContribution(req.user.sub, req.params.id, { amount: val, date, note });
-        if (!goal) return res.status(404).json({ error: 'Não encontrado' });
-        // Dispara email se a meta atingiu 100% agora
-        if ((goal.savedAmount || 0) >= goal.targetAmount && !goal.completedEmailSent) {
-            enviarEmailMetaConcluida(req.user.sub, goal).catch(err =>
-                console.error('[MetaConcluida] Erro ao enviar email por evento:', err.message)
-            );
-        }
-        res.json(goal);
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// DELETE /api/goals/:goalId/contributions/:contributionId
-router.delete('/goals/:goalId/contributions/:contributionId', (req, res) => {
-    try {
-        const goal = deleteGoalContribution(req.user.sub, req.params.goalId, req.params.contributionId);
-        goal ? res.json(goal) : res.status(404).json({ error: 'Não encontrado' });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// ── Insights ─────────────────────────────────────────────────────────────────
-
 // GET /api/insights/:month
 router.get('/insights/:month', (req, res) => {
     try {
-        const userId = req.user.sub;
-        const month = req.params.month;
-
-        // Collect all data
-        const allBills = getBills(userId, { activeOnly: true, month });
-        const expenses = getTransactions(userId, { month, type: 'expense' });
-        const incomes = getTransactions(userId, { month, type: 'income' });
-
-        // ── Análise de Gastos: agrupar por categoria ──────────────────────────
-        // Contas fixas agrupadas por categoria
-        const spendingGroups = {};
-        for (const bill of allBills) {
-            const cat = bill.category || 'Outros';
-            if (!spendingGroups[cat]) spendingGroups[cat] = { items: [], source: 'conta_fixa' };
-            spendingGroups[cat].items.push({ name: bill.description, amount: bill.amount, source: 'conta_fixa' });
-        }
-        // Gastos variáveis agrupados por categoria
-        for (const exp of expenses) {
-            const cat = exp.category || 'Outros';
-            if (!spendingGroups[cat]) spendingGroups[cat] = { items: [], source: 'gasto' };
-            spendingGroups[cat].items.push({ name: exp.description, amount: exp.amount, source: 'gasto' });
-        }
-        // Ordenar categorias por total decrescente
-        const spendingGroupsSorted = Object.fromEntries(
-            Object.entries(spendingGroups)
-                .map(([cat, g]) => [cat, { ...g, total: g.items.reduce((s, i) => s + i.amount, 0) }])
-                .sort((a, b) => b[1].total - a[1].total)
-        );
-        const spendingTotal = Object.values(spendingGroupsSorted).reduce((s, g) => s + g.total, 0);
-        // Manter compatibilidade: subscriptions alias
-        const subscriptionTotal = spendingTotal;
-
-        // ── Balance forecast ──────────────────────────────────────────────────
-        const today = new Date();
-        const [year, monthNum] = month.split('-').map(Number);
-        const daysInMonth = new Date(year, monthNum, 0).getDate();
-        const isCurrentMonth = today.getFullYear() === year && today.getMonth() + 1 === monthNum;
-        const dayOfMonth = isCurrentMonth ? today.getDate() : daysInMonth;
-
-        const totalIncome = incomes.reduce((s, t) => s + t.amount, 0);
-        const totalExpense = expenses.reduce((s, t) => s + t.amount, 0);
-        const totalBills = allBills.reduce((s, b) => s + b.amount, 0);
-        const currentBalance = totalIncome - totalExpense - totalBills;
-
-        // Average daily expense rate (from what's spent so far this month)
-        const dailyExpenseRate = dayOfMonth > 0 ? totalExpense / dayOfMonth : 0;
-        const daysRemaining = daysInMonth - dayOfMonth;
-
-        // Projected additional expenses
-        const projectedAdditionalExpense = dailyExpenseRate * daysRemaining;
-        const projectedBalance = currentBalance - projectedAdditionalExpense;
-
-        // Find the day when balance would go negative (if it will)
-        let negativeDayForecast = null;
-        if (currentBalance > 0 && dailyExpenseRate > 0 && projectedBalance < 0) {
-            negativeDayForecast = Math.floor(dayOfMonth + (currentBalance / dailyExpenseRate));
-            if (negativeDayForecast > daysInMonth) negativeDayForecast = null;
-        }
-
-        // Bills unpaid that are still due
-        const unpaidBills = allBills.filter(b => {
-            const paidMonths = b.paidMonths || [];
-            return !paidMonths.includes(month);
-        });
-        const unpaidBillsTotal = unpaidBills.reduce((s, b) => s + b.amount, 0);
-
-        res.json({
-            forecast: {
-                currentBalance,
-                projectedBalance,
-                dailyExpenseRate,
-                daysRemaining,
-                negativeDayForecast,
-                totalIncome,
-                totalExpense,
-                totalBills,
-                unpaidBillsTotal,
-                daysInMonth,
-                dayOfMonth,
-                isCurrentMonth
-            },
-            subscriptions: {
-                groups: spendingGroupsSorted,
-                total: spendingTotal
-            }
-        });
+        res.json(buildInsights(req.user.sub, req.params.month));
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // GET /api/health/:month
 router.get('/health/:month', (req, res) => {
     try {
-        const userId = req.user.sub;
-        const month = req.params.month;
-        const months = getAllMonths(userId);
-        res.json(buildHealthAnalysis(userId, month, months));
+        const months = getAllMonths(req.user.sub);
+        res.json(buildHealthAnalysis(req.user.sub, req.params.month, months));
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// GET /api/email-optin  — retorna estado atual de opt-out do usuário
+// GET /api/email-optin
 router.get('/email-optin', (req, res) => {
     try {
         const user = findUserById(req.user.sub);
@@ -564,7 +170,7 @@ router.get('/email-optin', (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// PATCH /api/email-optin  — { optOut: true|false }
+// PATCH /api/email-optin
 router.patch('/email-optin', (req, res) => {
     try {
         const { optOut } = req.body ?? {};

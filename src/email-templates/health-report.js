@@ -1,21 +1,9 @@
 import { APP_URL } from '../config.js';
+import { fmt, monthLabel } from './email-helpers.js';
 
-// ── Helpers de formatação ──────────────────────────────────────────────────────
-
-function fmt(v) {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
-}
-
+// fmtPct simples (sem sinal) — específico para barras de saúde financeira
 function fmtPct(v) {
   return (v || 0).toFixed(1) + '%';
-}
-
-function monthLabel(yyyyMM) {
-  if (!yyyyMM) return '';
-  const [year, month] = yyyyMM.split('-');
-  const names = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-  return `${names[Number(month) - 1]} ${year}`;
 }
 
 function scoreDelta(curr, prev) {

@@ -3,6 +3,7 @@ import { getAllMonths, previousMonth } from '../../transactions.js';
 import { buildMonthStats, financialHealth, compareMonths, buildAverages, buildSpendingAnalysis } from '../../reports.js';
 import { buildHealthReportEmail } from '../../email-templates/health-report.js';
 import { sendMail } from '../../mailer.js';
+import { formatMonthLabel } from '../../helpers.js';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -12,14 +13,6 @@ function closedMonth() {
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     return `${yyyy}-${mm}`;
-}
-
-function monthLabel(yyyyMM) {
-    if (!yyyyMM) return '';
-    const [year, month] = yyyyMM.split('-');
-    const names = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-    return `${names[Number(month) - 1]} ${year}`;
 }
 
 // ── Envio para um único usuário ───────────────────────────────────────────────
@@ -63,7 +56,7 @@ async function sendReportToUser(user, month) {
 
     const result = await sendMail({
         to: user.email,
-        subject: `📊 Relatório de Saúde Financeira — ${monthLabel(month)}`,
+        subject: `📊 Relatório de Saúde Financeira — ${formatMonthLabel(month)}`,
         html,
     });
 

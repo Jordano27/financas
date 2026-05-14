@@ -1,11 +1,7 @@
-import {
-    getTransactions,
-    getBills,
-    getInvestments,
-    formatCurrency,
-    formatMonthLabel,
-    previousMonth
-} from './transactions.js';
+import { getTransactions } from './transactions.js';
+import { getBills } from './bills.js';
+import { getInvestments } from './investments.js';
+import { formatCurrency, formatMonthLabel, previousMonth } from './helpers.js';
 
 // ── Core aggregation ──────────────────────────────────────────────────────────
 
@@ -22,7 +18,7 @@ export function buildMonthStats(userId, month) {
     const totalIncome = incomes.reduce((s, t) => s + t.amount, 0);
     const totalExpense = expenses.reduce((s, t) => s + t.amount, 0);
     const totalBills = bills.reduce((s, b) => s + b.amount, 0);
-    const totalInvested = investments.reduce((s, i) => s + i.amount, 0);
+    const totalInvested = investments.reduce((s, i) => s + (i.initialAmount || i.amount || 0), 0);
     const totalOutflow = totalExpense + totalBills;
     // Investimentos saem do saldo disponível (dinheiro alocado fora do consumo)
     const balance = totalIncome - totalOutflow - totalInvested;
@@ -260,93 +256,61 @@ export function buildSpendingAnalysis(userId, month) {
     return { groups: sorted, total };
 }
 
-// ── Terminal print helpers ────────────────────────────────────────────────────
+// ── Insights por mês (forecast + agrupamento de gastos) ──────────────────────
 
-export function printMonthReport(stats, chalk, Table) {
-    const { month, totalIncome, totalExpense, totalBills, totalOutflow, balance, savingsRate } = stats;
+export function buildInsights(userId, month) {
+    const allBills = getBills(userId, { activeOnly: true, month });
+    const expenses = getTransactions(userId, { month, type: 'expense' });
+    const incomes = getTransactions(userId, { month, type: 'income' });
 
-    console.log('\n' + chalk.bold.blue(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`));
-    console.log(chalk.bold.white(` 📊  RESUMO — ${formatMonthLabel(month).toUpperCase()}`));
-    console.log(chalk.bold.blue(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`));
-
-    const summaryTable = new Table({
-        head: [chalk.cyan('Item'), chalk.cyan('Valor')],
-        colAligns: ['left', 'right']
-    });
-    summaryTable.push(
-        [chalk.green('Total de Ganhos'), chalk.green(formatCurrency(totalIncome))],
-        [chalk.red('Gastos Variáveis'), chalk.red(formatCurrency(totalExpense))],
-        [chalk.yellow('Contas Fixas'), chalk.yellow(formatCurrency(totalBills))],
-        [chalk.red('Total de Saídas'), chalk.red(formatCurrency(totalOutflow))],
-        [balance >= 0 ? chalk.green('Saldo') : chalk.red('Saldo'),
-        balance >= 0 ? chalk.green(formatCurrency(balance)) : chalk.red(formatCurrency(balance))],
-        [chalk.cyan('Taxa de Poupança'), chalk.cyan(savingsRate.toFixed(1) + '%')]
+    const spendingGroups = {};
+    for (const bill of allBills) {
+        const cat = bill.category || 'Outros';
+        if (!spendingGroups[cat]) spendingGroups[cat] = { items: [], source: 'conta_fixa' };
+        spendingGroups[cat].items.push({ name: bill.description, amount: bill.amount, source: 'conta_fixa' });
+    }
+    for (const exp of expenses) {
+        const cat = exp.category || 'Outros';
+        if (!spendingGroups[cat]) spendingGroups[cat] = { items: [], source: 'gasto' };
+        spendingGroups[cat].items.push({ name: exp.description, amount: exp.amount, source: 'gasto' });
+    }
+    const spendingGroupsSorted = Object.fromEntries(
+        Object.entries(spendingGroups)
+            .map(([cat, g]) => [cat, { ...g, total: g.items.reduce((s, i) => s + i.amount, 0) }])
+            .sort((a, b) => b[1].total - a[1].total)
     );
-    console.log(summaryTable.toString());
+    const spendingTotal = Object.values(spendingGroupsSorted).reduce((s, g) => s + g.total, 0);
 
-    // Expenses by category
-    if (Object.keys(stats.expenseByCategory).length) {
-        console.log('\n' + chalk.bold('Gastos por Categoria:'));
-        const catTable = new Table({ head: [chalk.cyan('Categoria'), chalk.cyan('Valor'), chalk.cyan('%')] });
-        for (const [cat, val] of Object.entries(stats.expenseByCategory).sort((a, b) => b[1] - a[1])) {
-            const pct = totalExpense > 0 ? ((val / totalExpense) * 100).toFixed(1) : '0.0';
-            catTable.push([cat, formatCurrency(val), pct + '%']);
-        }
-        console.log(catTable.toString());
+    const today = new Date();
+    const [year, monthNum] = month.split('-').map(Number);
+    const daysInMonth = new Date(year, monthNum, 0).getDate();
+    const isCurrentMonth = today.getFullYear() === year && today.getMonth() + 1 === monthNum;
+    const dayOfMonth = isCurrentMonth ? today.getDate() : daysInMonth;
+
+    const totalIncome = incomes.reduce((s, t) => s + t.amount, 0);
+    const totalExpense = expenses.reduce((s, t) => s + t.amount, 0);
+    const totalBills = allBills.reduce((s, b) => s + b.amount, 0);
+    const currentBalance = totalIncome - totalExpense - totalBills;
+    const dailyExpenseRate = dayOfMonth > 0 ? totalExpense / dayOfMonth : 0;
+    const daysRemaining = daysInMonth - dayOfMonth;
+    const projectedBalance = currentBalance - (dailyExpenseRate * daysRemaining);
+
+    let negativeDayForecast = null;
+    if (currentBalance > 0 && dailyExpenseRate > 0 && projectedBalance < 0) {
+        negativeDayForecast = Math.floor(dayOfMonth + (currentBalance / dailyExpenseRate));
+        if (negativeDayForecast > daysInMonth) negativeDayForecast = null;
     }
 
-    // Health
-    const health = financialHealth(stats);
-    console.log('\n' + chalk.bold(`Saúde Financeira: ${health.label}  (${health.score}/100)`));
-    health.tips.forEach(t => console.log('  ' + t));
-    console.log('');
-}
+    const unpaidBillsTotal = allBills
+        .filter(b => !(b.paidMonths || []).includes(month))
+        .reduce((s, b) => s + b.amount, 0);
 
-export function printComparison(cmp, chalk, Table) {
-    const { current, previous, diff, pct } = cmp;
-
-    console.log('\n' + chalk.bold.magenta(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`));
-    console.log(chalk.bold.white(` 📈  COMPARAÇÃO: ${formatMonthLabel(previous.month).toUpperCase()} → ${formatMonthLabel(current.month).toUpperCase()}`));
-    console.log(chalk.bold.magenta(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`));
-
-    const t = new Table({
-        head: [chalk.cyan('Item'), chalk.cyan(formatMonthLabel(previous.month)), chalk.cyan(formatMonthLabel(current.month)), chalk.cyan('Variação'), chalk.cyan('%')]
-    });
-
-    function arrow(v) { return v > 0 ? '▲' : v < 0 ? '▼' : '–'; }
-    function colorDiff(v, inverse = false) {
-        const good = inverse ? v < 0 : v > 0;
-        const str = `${arrow(v)} ${formatCurrency(Math.abs(v))}`;
-        return good ? chalk.green(str) : v === 0 ? chalk.grey(str) : chalk.red(str);
-    }
-
-    t.push(
-        ['Ganhos', formatCurrency(previous.totalIncome), formatCurrency(current.totalIncome), colorDiff(diff.income), (pct.income >= 0 ? chalk.green : chalk.red)(pct.income.toFixed(1) + '%')],
-        ['Gastos Variáveis', formatCurrency(previous.totalExpense), formatCurrency(current.totalExpense), colorDiff(-diff.expense, true), (pct.expense <= 0 ? chalk.green : chalk.red)(pct.expense.toFixed(1) + '%')],
-        ['Contas Fixas', formatCurrency(previous.totalBills), formatCurrency(current.totalBills), colorDiff(-diff.bills, true), '–'],
-        ['Total Saídas', formatCurrency(previous.totalOutflow), formatCurrency(current.totalOutflow), colorDiff(-diff.outflow, true), (pct.outflow <= 0 ? chalk.green : chalk.red)(pct.outflow.toFixed(1) + '%')],
-        ['Saldo', formatCurrency(previous.balance), formatCurrency(current.balance), colorDiff(diff.balance), (pct.balance >= 0 ? chalk.green : chalk.red)(pct.balance.toFixed(1) + '%')]
-    );
-    console.log(t.toString());
-    console.log('');
-}
-
-export function printAverages(avgs, chalk, Table) {
-    if (!avgs) { console.log(chalk.yellow('Sem dados suficientes para médias.')); return; }
-
-    console.log('\n' + chalk.bold.cyan(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`));
-    console.log(chalk.bold.white(` 📐  MÉDIAS GERAIS (${avgs.monthsAnalyzed} mês/meses analisado(s))`));
-    console.log(chalk.bold.cyan(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`));
-
-    const t = new Table({ head: [chalk.cyan('Métrica'), chalk.cyan('Média Mensal')], colAligns: ['left', 'right'] });
-    t.push(
-        [chalk.green('Ganhos'), chalk.green(formatCurrency(avgs.avgIncome))],
-        [chalk.red('Gastos Variáveis'), chalk.red(formatCurrency(avgs.avgExpense))],
-        [chalk.yellow('Contas Fixas'), chalk.yellow(formatCurrency(avgs.avgBills))],
-        [chalk.red('Total Saídas'), chalk.red(formatCurrency(avgs.avgOutflow))],
-        ['Saldo', formatCurrency(avgs.avgBalance)],
-        [chalk.cyan('Taxa de Poupança'), chalk.cyan(avgs.avgSavings.toFixed(1) + '%')]
-    );
-    console.log(t.toString());
-    console.log('');
+    return {
+        forecast: {
+            currentBalance, projectedBalance, dailyExpenseRate, daysRemaining,
+            negativeDayForecast, totalIncome, totalExpense, totalBills,
+            unpaidBillsTotal, daysInMonth, dayOfMonth, isCurrentMonth
+        },
+        subscriptions: { groups: spendingGroupsSorted, total: spendingTotal }
+    };
 }

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAdmin } from '../middleware/auth.js';
-import { listUsers, registerUser, updateUser, setUserActive, setUserPlan, validateUserInput } from '../users.js';
+import { listUsers, registerUser, updateUser, setUserActive, setUserPlan, validateUserInput, validateUserUpdate } from '../users.js';
 import { getAllMonths, currentMonth } from '../transactions.js';
 import { buildMonthStats, buildAverages } from '../reports.js';
 
@@ -29,15 +29,8 @@ router.post('/users', (req, res) => {
 // PUT /api/admin/users/:id
 router.put('/users/:id', (req, res) => {
     const { name, email, password } = req.body || {};
-    if (name && name.trim().length < 2)
-        return res.status(400).json({ error: 'Nome deve ter pelo menos 2 caracteres' });
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-        return res.status(400).json({ error: 'E-mail inválido' });
-    if (password) {
-        if (password.length < 8) return res.status(400).json({ error: 'Senha deve ter pelo menos 8 caracteres' });
-        if (!/[a-zA-Z]/.test(password)) return res.status(400).json({ error: 'Senha deve conter letras' });
-        if (!/[0-9]/.test(password)) return res.status(400).json({ error: 'Senha deve conter números' });
-    }
+    const errors = validateUserUpdate({ name, email, password });
+    if (errors.length) return res.status(400).json({ error: errors[0] });
     try {
         res.json(updateUser(req.params.id, { name, email, password }));
     } catch (e) { res.status(404).json({ error: e.message }); }

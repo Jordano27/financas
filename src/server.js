@@ -6,6 +6,9 @@ import { dirname, join } from 'path';
 import { requireAuth } from './middleware/auth.js';
 import authRouter from './routes/auth.js';
 import transactionsRouter from './routes/transactions.js';
+import billsRouter from './routes/bills.js';
+import investmentsRouter from './routes/investments.js';
+import goalsRouter from './routes/goals.js';
 import adminRouter from './routes/admin.js';
 import { initScheduler } from './automacoes/automacoes_email/scheduler.js';
 
@@ -37,6 +40,9 @@ app.use('/api/auth', authRouter);
 // ── Rotas protegidas ──────────────────────────────────────────────────────────
 app.use('/api', requireAuth);
 app.use('/api', transactionsRouter);
+app.use('/api', billsRouter);
+app.use('/api', investmentsRouter);
+app.use('/api', goalsRouter);
 app.use('/api/admin', adminRouter);
 
 // ── Fallback SPA ──────────────────────────────────────────────────────────────

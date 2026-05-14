@@ -1,43 +1,20 @@
-import { APP_URL } from '../config.js';
+﻿import { APP_URL } from '../config.js';
+import { fmt, escHtml, fmtDate } from './email-helpers.js';
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
-
-function fmt(v) {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
-}
-
-function escHtml(str) {
-    return String(str ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-}
-
-function fmtDate(isoDate) {
-    if (!isoDate) return '—';
-    const [y, m, d] = isoDate.split('T')[0].split('-');
-    return `${d}/${m}/${y}`;
-}
-
-/**
- * Calcula tempo decorrido entre duas datas ISO e retorna string legível.
- * Ex: "3 meses e 15 dias" ou "47 dias"
- */
 function timeBetween(startISO, endISO) {
-    const start = new Date(startISO);
-    const end = new Date(endISO || new Date().toISOString());
-    const diffMs = Math.max(0, end - start);
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const start = new Date(startISO);
+  const end = new Date(endISO || new Date().toISOString());
+  const diffMs = Math.max(0, end - start);
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-    if (diffDays === 0) return 'menos de 1 dia';
+  if (diffDays === 0) return 'menos de 1 dia';
 
-    const months = Math.floor(diffDays / 30);
-    const days = diffDays % 30;
+  const months = Math.floor(diffDays / 30);
+  const days = diffDays % 30;
 
-    if (months === 0) return `${diffDays} dia${diffDays !== 1 ? 's' : ''}`;
-    if (days === 0) return `${months} mês${months !== 1 ? 'es' : ''}`;
-    return `${months} mês${months !== 1 ? 'es' : ''} e ${days} dia${days !== 1 ? 's' : ''}`;
+  if (months === 0) return `${diffDays} dia${diffDays !== 1 ? 's' : ''}`;
+  if (days === 0) return `${months} mês${months !== 1 ? 'es' : ''}`;
+  return `${months} mês${months !== 1 ? 'es' : ''} e ${days} dia${days !== 1 ? 's' : ''}`;
 }
 
 // ── Template ───────────────────────────────────────────────────────────────────
@@ -52,23 +29,23 @@ function timeBetween(startISO, endISO) {
  * @param {string} params.unsubToken
  */
 export function buildGoalCompletedEmail({ userName, goal, unsubToken }) {
-    const contributions = goal.contributions || [];
-    const totalContribs = contributions.length;
-    const completedAt = goal.completedAt || new Date().toISOString();
-    const elapsed = timeBetween(goal.createdAt, completedAt);
-    const unsubUrl = `${APP_URL}/api/auth/unsubscribe?token=${encodeURIComponent(unsubToken)}`;
+  const contributions = goal.contributions || [];
+  const totalContribs = contributions.length;
+  const completedAt = goal.completedAt || new Date().toISOString();
+  const elapsed = timeBetween(goal.createdAt, completedAt);
+  const unsubUrl = `${APP_URL}/api/auth/unsubscribe?token=${encodeURIComponent(unsubToken)}`;
 
-    // Soma acumulada por aporte (para exibir progresso)
-    let running = 0;
-    const contribRows = contributions.map((c, i) => {
-        running += c.amount;
-        const pct = goal.targetAmount > 0
-            ? Math.min(100, (running / goal.targetAmount) * 100).toFixed(1)
-            : '100.0';
-        const isLast = running >= goal.targetAmount && i === contributions.findLastIndex(
-            (_, j) => contributions.slice(0, j + 1).reduce((s, x) => s + x.amount, 0) >= goal.targetAmount
-        );
-        return `
+  // Soma acumulada por aporte (para exibir progresso)
+  let running = 0;
+  const contribRows = contributions.map((c, i) => {
+    running += c.amount;
+    const pct = goal.targetAmount > 0
+      ? Math.min(100, (running / goal.targetAmount) * 100).toFixed(1)
+      : '100.0';
+    const isLast = running >= goal.targetAmount && i === contributions.findLastIndex(
+      (_, j) => contributions.slice(0, j + 1).reduce((s, x) => s + x.amount, 0) >= goal.targetAmount
+    );
+    return `
         <tr style="${isLast ? 'background:#f0fdf4;' : ''}border-bottom:1px solid #f3f4f6;">
           <td style="padding:8px 12px;font-size:13px;color:#6b7280;">${i + 1}</td>
           <td style="padding:8px 12px;font-size:13px;">${fmtDate(c.date)}</td>
@@ -83,9 +60,9 @@ export function buildGoalCompletedEmail({ userName, goal, unsubToken }) {
           <td style="padding:8px 12px;font-size:12px;color:#6b7280;">${escHtml(c.note || '—')}</td>
           ${isLast ? '<td style="padding:8px 12px;font-size:14px;">🎯</td>' : '<td></td>'}
         </tr>`;
-    }).join('');
+  }).join('');
 
-    return `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">

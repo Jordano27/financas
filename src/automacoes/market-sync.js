@@ -11,7 +11,7 @@
  */
 
 import { listUsers, findUserById } from '../users.js';
-import { getInvestments, updateInvestmentCurrentValue } from '../transactions.js';
+import { getInvestments, updateInvestmentCurrentValue } from '../investments.js';
 
 // ── Helpers de fetch com timeout ──────────────────────────────────────────────
 
@@ -112,35 +112,33 @@ async function fetchTesouro(titleName, initialAmount) {
     return pu * qty;
 }
 
+// ── Registro de fetchers por tipo de investimento ────────────────────────────
+
+const FETCHERS = {
+    stock: ({ marketId, rateInfo }) => {
+        if (!marketId) throw new Error('marketId (ticker) obrigatório para stock');
+        const qty = rateInfo?.quantity ?? 1;
+        return fetchStock(marketId).then(price => price * qty);
+    },
+    crypto: ({ marketId, rateInfo }) => {
+        if (!marketId) throw new Error('marketId (coin id) obrigatório para crypto');
+        const qty = rateInfo?.quantity ?? 1;
+        return fetchCrypto(marketId).then(price => price * qty);
+    },
+    cdi: ({ initialAmount, startDate, rateInfo }) =>
+        fetchCDI(initialAmount, startDate, rateInfo),
+    tesouro: ({ marketId, initialAmount }) => {
+        if (!marketId) throw new Error('marketId (nome do título) obrigatório para tesouro');
+        return fetchTesouro(marketId, initialAmount);
+    },
+};
+
 // ── Sync de um único investimento ─────────────────────────────────────────────
 
 async function syncOne(inv) {
-    const { marketType, marketId, initialAmount, startDate, rateInfo } = inv;
-
-    switch (marketType) {
-        case 'stock': {
-            if (!marketId) throw new Error('marketId (ticker) obrigatório para stock');
-            // Para ações: currentValue = preço_atual × quantidade
-            const qty = rateInfo?.quantity ?? 1;
-            const price = await fetchStock(marketId);
-            return price * qty;
-        }
-        case 'crypto': {
-            if (!marketId) throw new Error('marketId (coin id) obrigatório para crypto');
-            const qty = rateInfo?.quantity ?? 1;
-            const price = await fetchCrypto(marketId);
-            return price * qty;
-        }
-        case 'cdi': {
-            return await fetchCDI(initialAmount, startDate, rateInfo);
-        }
-        case 'tesouro': {
-            if (!marketId) throw new Error('marketId (nome do título) obrigatório para tesouro');
-            return await fetchTesouro(marketId, initialAmount);
-        }
-        default:
-            return null; // manual — não sincroniza
-    }
+    const fetcher = FETCHERS[inv.marketType];
+    if (!fetcher) return null; // manual — não sincroniza
+    return fetcher(inv);
 }
 
 // ── Sync de todos os usuários ─────────────────────────────────────────────────

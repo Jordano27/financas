@@ -1,27 +1,21 @@
+﻿/**
+ * transactions.js — ponto de re-exportacao unificado (compatibilidade).
+ *
+ * A logica foi dividida em modulos de dominio:
+ *   src/helpers.js      — helpers de data/moeda
+ *   src/bills.js        — contas fixas
+ *   src/investments.js  — carteira de investimentos
+ *   src/goals.js        — metas financeiras
+ *
+ * Este arquivo mantem todos os exports originais para nao quebrar importacoes existentes.
+ */
 import { loadUserDB, saveUserDB } from './db.js';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { todayISO, monthKey } from './helpers.js';
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-export function todayISO() {
-    return format(new Date(), 'yyyy-MM-dd');
-}
-
-export function monthKey(dateStr) {
-    // Returns "YYYY-MM" from a "YYYY-MM-DD" string
-    return dateStr.slice(0, 7);
-}
-
-export function formatCurrency(value) {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-}
-
-export function formatMonthLabel(yyyyMM) {
-    const [year, month] = yyyyMM.split('-');
-    const date = new Date(Number(year), Number(month) - 1, 1);
-    return format(date, 'MMMM yyyy', { locale: ptBR });
-}
+export {
+    todayISO, monthKey, formatCurrency, formatMonthLabel,
+    currentMonth, previousMonth,
+} from './helpers.js';
 
 // ── Transactions (income / expense) ──────────────────────────────────────────
 
@@ -29,7 +23,7 @@ export function addTransaction(userId, { type, description, amount, category, da
     const db = loadUserDB(userId);
     const transaction = {
         id: crypto.randomUUID(),
-        type,          // 'income' | 'expense'
+        type,
         description,
         amount: Number(amount),
         category,
@@ -69,386 +63,6 @@ export function updateTransaction(userId, id, { description, amount, category, d
     return tx;
 }
 
-// ── Bills (contas fixas mensais) ──────────────────────────────────────────────
-
-export function addBill(userId, { description, amount, category, dueDay, active = true }) {
-    const db = loadUserDB(userId);
-    const bill = {
-        id: crypto.randomUUID(),
-        description,
-        amount: Number(amount),
-        category,
-        dueDay: Number(dueDay),  // day of month (1-31)
-        active,
-        createdAt: new Date().toISOString()
-    };
-    db.bills.push(bill);
-    saveUserDB(userId, db);
-    return bill;
-}
-
-export function getBills(userId, { activeOnly = false, month = null } = {}) {
-    const db = loadUserDB(userId);
-    let list = db.bills.map(b => {
-        if (!month) return { ...b };
-        // Support legacy boolean format (active only) and new object format
-        const raw = b.monthOverrides?.[month];
-        const override = raw !== undefined
-            ? (typeof raw === 'object' ? raw : { active: raw })
-            : {};
-        return { ...b, ...override };
-    });
-    // Oculta contas marcadas como excluídas no mês selecionado
-    if (month) list = list.filter(b => !b.deleted);
-    if (activeOnly) list = list.filter(b => b.active);
-    return list.sort((a, b) => a.dueDay - b.dueDay);
-}
-
-/**
- * toggleBill com suporte a mês específico.
- * - Com month: alterna apenas o override para aquele mês (não afeta outros meses).
- * - Sem month: alterna o estado global `active` (comportamento legado).
- */
-export function toggleBill(userId, id, month = null) {
-    const db = loadUserDB(userId);
-    const bill = db.bills.find(b => b.id === id);
-    if (!bill) return false;
-
-    if (month) {
-        if (!bill.monthOverrides) bill.monthOverrides = {};
-        // Normalize legacy boolean to object
-        if (typeof bill.monthOverrides[month] !== 'object') {
-            bill.monthOverrides[month] = {};
-        }
-        const ov = bill.monthOverrides[month];
-        const currentActive = 'active' in ov ? ov.active : bill.active;
-        if (currentActive === bill.active) {
-            ov.active = !bill.active;
-        } else {
-            delete ov.active;
-            if (Object.keys(ov).length === 0) delete bill.monthOverrides[month];
-        }
-        saveUserDB(userId, db);
-        const finalOv = bill.monthOverrides?.[month] || {};
-        return { ...bill, ...finalOv };
-    }
-
-    // Legacy: toggle global state
-    bill.active = !bill.active;
-    saveUserDB(userId, db);
-    return bill;
-}
-
-export function toggleBillPaid(userId, id, month) {
-    const db = loadUserDB(userId);
-    const bill = db.bills.find(b => b.id === id);
-    if (!bill) return null;
-    if (!bill.paidMonths) bill.paidMonths = [];
-    const idx = bill.paidMonths.indexOf(month);
-    if (idx === -1) {
-        bill.paidMonths.push(month);
-    } else {
-        bill.paidMonths.splice(idx, 1);
-    }
-    saveUserDB(userId, db);
-    return bill;
-}
-
-/**
- * deleteBill com suporte a mês específico.
- * - Com month: marca `deleted: true` no override daquele mês (oculta só neste mês).
- * - Sem month: remove a conta permanentemente de todos os meses.
- */
-export function deleteBill(userId, id, month = null) {
-    const db = loadUserDB(userId);
-    const bill = db.bills.find(b => b.id === id);
-    if (!bill) return false;
-
-    if (month) {
-        if (!bill.monthOverrides) bill.monthOverrides = {};
-        if (!bill.monthOverrides[month] || typeof bill.monthOverrides[month] !== 'object') {
-            bill.monthOverrides[month] = {};
-        }
-        bill.monthOverrides[month].deleted = true;
-        saveUserDB(userId, db);
-        return true;
-    }
-
-    // Remoção global
-    const before = db.bills.length;
-    db.bills = db.bills.filter(b => b.id !== id);
-    saveUserDB(userId, db);
-    return db.bills.length < before;
-}
-
-/**
- * updateBill com suporte a mês específico.
- * - Com month: salva as alterações somente no override daquele mês.
- * - Sem month: altera os dados globais da conta (todos os meses).
- */
-export function updateBill(userId, id, { description, amount, category, dueDay, month = null }) {
-    const db = loadUserDB(userId);
-    const bill = db.bills.find(b => b.id === id);
-    if (!bill) return null;
-
-    if (month) {
-        if (!bill.monthOverrides) bill.monthOverrides = {};
-        if (!bill.monthOverrides[month] || typeof bill.monthOverrides[month] !== 'object') {
-            bill.monthOverrides[month] = {};
-        }
-        const ov = bill.monthOverrides[month];
-        if (description !== undefined) ov.description = String(description).trim();
-        if (amount !== undefined) ov.amount = Number(amount);
-        if (category !== undefined) ov.category = category;
-        if (dueDay !== undefined) ov.dueDay = Number(dueDay);
-        // Remove override if it matches the global values exactly
-        if (
-            (!('description' in ov) || ov.description === bill.description) &&
-            (!('amount' in ov) || ov.amount === bill.amount) &&
-            (!('category' in ov) || ov.category === bill.category) &&
-            (!('dueDay' in ov) || ov.dueDay === bill.dueDay) &&
-            !('active' in ov)
-        ) {
-            delete bill.monthOverrides[month];
-        }
-    } else {
-        if (description !== undefined) bill.description = String(description).trim();
-        if (amount !== undefined) bill.amount = Number(amount);
-        if (category !== undefined) bill.category = category;
-        if (dueDay !== undefined) bill.dueDay = Number(dueDay);
-    }
-
-    saveUserDB(userId, db);
-    return bill;
-}
-
-// ── Investments ───────────────────────────────────────────────────────────────
-
-/** Migra entradas legadas (amount+date simples) para o novo modelo de carteira. */
-function migrateInvestment(inv) {
-    const base = inv.initialAmount !== undefined ? inv : {
-        ...inv,
-        initialAmount: inv.amount || 0,
-        startDate: inv.date || inv.createdAt?.slice(0, 10),
-        contributions: [],
-    };
-    // Sempre garante que os novos campos existam, mesmo em entradas parcialmente migradas
-    return {
-        ...base,
-        currentValue: base.currentValue ?? base.initialAmount ?? base.amount ?? 0,
-        marketType: base.marketType ?? 'manual',
-        marketId: base.marketId ?? null,
-        rateInfo: base.rateInfo ?? null,
-        lastSyncAt: base.lastSyncAt ?? null,
-        amount: base.amount ?? base.initialAmount ?? 0,
-    };
-}
-
-export function addInvestment(userId, { description, category, initialAmount, startDate, marketType = 'manual', marketId = null, rateInfo = null }) {
-    const db = loadUserDB(userId);
-    if (!db.investments) db.investments = [];
-    const amt = Number(initialAmount);
-    const investment = {
-        id: crypto.randomUUID(),
-        description: String(description).trim(),
-        category,
-        initialAmount: amt,
-        currentValue: amt,
-        contributions: [],
-        startDate: startDate || todayISO(),
-        marketType,   // 'stock' | 'crypto' | 'cdi' | 'tesouro' | 'manual'
-        marketId,     // ticker, coin id, título, etc.
-        rateInfo,     // { type: 'CDI', rate: 110 } para renda fixa
-        lastSyncAt: null,
-        createdAt: new Date().toISOString(),
-        // compat legado
-        amount: amt,
-        date: startDate || todayISO(),
-    };
-    db.investments.push(investment);
-    saveUserDB(userId, db);
-    return investment;
-}
-
-export function getInvestments(userId) {
-    const db = loadUserDB(userId);
-    return (db.investments || []).map(migrateInvestment)
-        .sort((a, b) => b.startDate?.localeCompare(a.startDate));
-}
-
-export function deleteInvestment(userId, id) {
-    const db = loadUserDB(userId);
-    const before = (db.investments || []).length;
-    db.investments = (db.investments || []).filter(i => i.id !== id);
-    saveUserDB(userId, db);
-    return db.investments.length < before;
-}
-
-export function updateInvestment(userId, id, { description, category, initialAmount, startDate, marketType, marketId, rateInfo }) {
-    const db = loadUserDB(userId);
-    const inv = (db.investments || []).find(i => i.id === id);
-    if (!inv) return null;
-    if (description !== undefined) inv.description = String(description).trim();
-    if (category !== undefined) inv.category = category;
-    if (initialAmount !== undefined) { inv.initialAmount = Number(initialAmount); inv.amount = Number(initialAmount); }
-    if (startDate !== undefined) { inv.startDate = startDate; inv.date = startDate; }
-    if (marketType !== undefined) inv.marketType = marketType;
-    if (marketId !== undefined) inv.marketId = marketId;
-    if (rateInfo !== undefined) inv.rateInfo = rateInfo;
-    saveUserDB(userId, db);
-    return migrateInvestment(inv);
-}
-
-export function updateInvestmentCurrentValue(userId, id, currentValue, lastSyncAt = null) {
-    const db = loadUserDB(userId);
-    const inv = (db.investments || []).find(i => i.id === id);
-    if (!inv) return null;
-    inv.currentValue = Number(currentValue);
-    inv.lastSyncAt = lastSyncAt || new Date().toISOString();
-    saveUserDB(userId, db);
-    return migrateInvestment(inv);
-}
-
-export function addInvestmentContribution(userId, id, { amount, date, note }) {
-    const db = loadUserDB(userId);
-    const inv = (db.investments || []).find(i => i.id === id);
-    if (!inv) return null;
-    if (!inv.contributions) inv.contributions = [];
-    const contribution = {
-        id: crypto.randomUUID(),
-        amount: Number(amount),
-        date: date || todayISO(),
-        note: note || '',
-        createdAt: new Date().toISOString(),
-    };
-    inv.contributions.push(contribution);
-    // Atualiza initialAmount acumulado e compat legado
-    inv.initialAmount = (inv.initialAmount || 0) + contribution.amount;
-    inv.amount = inv.initialAmount;
-    saveUserDB(userId, db);
-    return migrateInvestment(inv);
-}
-
-export function deleteInvestmentContribution(userId, invId, contributionId) {
-    const db = loadUserDB(userId);
-    const inv = (db.investments || []).find(i => i.id === invId);
-    if (!inv || !inv.contributions) return null;
-    const contrib = inv.contributions.find(c => c.id === contributionId);
-    if (!contrib) return null;
-    inv.contributions = inv.contributions.filter(c => c.id !== contributionId);
-    inv.initialAmount = Math.max(0, (inv.initialAmount || 0) - contrib.amount);
-    inv.amount = inv.initialAmount;
-    saveUserDB(userId, db);
-    return migrateInvestment(inv);
-}
-
-export function getTotalInvested(userId) {
-    const db = loadUserDB(userId);
-    return (db.investments || []).reduce((s, i) => s + (i.initialAmount ?? i.amount ?? 0), 0);
-}
-
-// ── Goals ─────────────────────────────────────────────────────────────────────
-
-export function addGoal(userId, { description, targetAmount, targetDate, category }) {
-    const db = loadUserDB(userId);
-    if (!db.goals) db.goals = [];
-    const goal = {
-        id: crypto.randomUUID(),
-        description: String(description).trim(),
-        targetAmount: Number(targetAmount),
-        targetDate,
-        category: category || 'Geral',
-        savedAmount: 0,
-        contributions: [],
-        createdAt: new Date().toISOString()
-    };
-    db.goals.push(goal);
-    saveUserDB(userId, db);
-    return goal;
-}
-
-export function getGoals(userId) {
-    const db = loadUserDB(userId);
-    return (db.goals || []).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-}
-
-export function deleteGoal(userId, id) {
-    const db = loadUserDB(userId);
-    const idx = (db.goals || []).findIndex(g => g.id === id);
-    if (idx === -1) return false;
-    db.goals.splice(idx, 1);
-    saveUserDB(userId, db);
-    return true;
-}
-
-export function updateGoal(userId, id, { description, targetAmount, targetDate, category }) {
-    const db = loadUserDB(userId);
-    const goal = (db.goals || []).find(g => g.id === id);
-    if (!goal) return null;
-    if (description !== undefined) goal.description = String(description).trim();
-    if (targetAmount !== undefined) goal.targetAmount = Number(targetAmount);
-    if (targetDate !== undefined) goal.targetDate = targetDate;
-    if (category !== undefined) goal.category = category;
-    saveUserDB(userId, db);
-    return goal;
-}
-
-export function addGoalContribution(userId, id, { amount, date, note }) {
-    const db = loadUserDB(userId);
-    const goal = (db.goals || []).find(g => g.id === id);
-    if (!goal) return null;
-    const contribution = {
-        id: crypto.randomUUID(),
-        amount: Number(amount),
-        date: date || format(new Date(), 'yyyy-MM-dd'),
-        note: note || '',
-        createdAt: new Date().toISOString()
-    };
-    if (!goal.contributions) goal.contributions = [];
-    goal.contributions.push(contribution);
-    goal.savedAmount = goal.contributions.reduce((s, c) => s + c.amount, 0);
-    saveUserDB(userId, db);
-    return goal;
-}
-
-export function deleteGoalContribution(userId, goalId, contributionId) {
-    const db = loadUserDB(userId);
-    const goal = (db.goals || []).find(g => g.id === goalId);
-    if (!goal || !goal.contributions) return null;
-    goal.contributions = goal.contributions.filter(c => c.id !== contributionId);
-    goal.savedAmount = goal.contributions.reduce((s, c) => s + c.amount, 0);
-    saveUserDB(userId, db);
-    return goal;
-}
-
-/** Marca a meta como "email de conclusão enviado" para não enviar duplicata. */
-export function markGoalCompletedEmailSent(userId, goalId) {
-    const db = loadUserDB(userId);
-    const goal = (db.goals || []).find(g => g.id === goalId);
-    if (!goal) return false;
-    goal.completedEmailSent = true;
-    goal.completedAt = goal.completedAt || new Date().toISOString();
-    saveUserDB(userId, db);
-    return true;
-}
-
-/** Registra que um aviso de vencimento foi enviado para evitar duplicatas.
- *  billAlerts[billId][YYYY-MM]["7dias"|"hoje"|"vencida"] = true
- */
-export function markBillAlert(userId, billId, month, tipo) {
-    const db = loadUserDB(userId);
-    if (!db.billAlerts) db.billAlerts = {};
-    if (!db.billAlerts[billId]) db.billAlerts[billId] = {};
-    if (!db.billAlerts[billId][month]) db.billAlerts[billId][month] = {};
-    db.billAlerts[billId][month][tipo] = true;
-    saveUserDB(userId, db);
-}
-
-export function getBillAlerts(userId) {
-    const db = loadUserDB(userId);
-    return db.billAlerts || {};
-}
-
 // ── Month query helpers ───────────────────────────────────────────────────────
 
 export function getAllMonths(userId) {
@@ -457,13 +71,19 @@ export function getAllMonths(userId) {
     return [...months].sort();
 }
 
-export function currentMonth() {
-    return format(new Date(), 'yyyy-MM');
-}
+// ── Re-exports dos modulos de dominio ─────────────────────────────────────────
+export {
+    addBill, getBills, deleteBill, toggleBill, toggleBillPaid, updateBill,
+    markBillAlert, getBillAlerts,
+} from './bills.js';
 
-export function previousMonth(yyyyMM) {
-    const [year, month] = yyyyMM.split('-').map(Number);
-    const d = new Date(year, month - 2, 1);
-    return format(d, 'yyyy-MM');
-}
+export {
+    addInvestment, getInvestments, deleteInvestment, updateInvestment,
+    updateInvestmentCurrentValue, addInvestmentContribution,
+    deleteInvestmentContribution, getTotalInvested, migrateInvestment,
+} from './investments.js';
 
+export {
+    addGoal, getGoals, deleteGoal, updateGoal,
+    addGoalContribution, deleteGoalContribution, markGoalCompletedEmailSent,
+} from './goals.js';

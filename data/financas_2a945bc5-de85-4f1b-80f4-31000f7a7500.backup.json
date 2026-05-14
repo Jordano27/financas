@@ -120,7 +120,7 @@
           "description": "Corte Cabelo",
           "amount": 40,
           "category": "Outros",
-          "dueDay": 13
+          "dueDay": 15
         }
       }
     },
@@ -146,25 +146,20 @@
       "active": true,
       "createdAt": "2026-05-12T23:39:16.042Z",
       "paidMonths": [
-        "2026-04"
+        "2026-04",
+        "2026-05"
       ],
-      "monthOverrides": {
-        "2026-05": {
-          "description": "Prime Video",
-          "amount": 20,
-          "category": "Streaming",
-          "dueDay": 20
-        }
-      }
+      "monthOverrides": {}
     }
   ],
   "investments": [
     {
       "id": "a467750c-0808-42a7-a63f-ba19d5eecea0",
       "description": "CDB",
+      "amount": 500,
       "category": "CDB",
-      "initialAmount": 500,
-      "currentValue": 527.179044712334,
+      "date": "2026-01-01",
+      "createdAt": "2026-05-12T22:45:32.230Z",
       "contributions": [
         {
           "id": "f2e9fe7c-72de-407c-825d-9fb338aeb3b3",
@@ -188,6 +183,7 @@
           "createdAt": "2026-05-13T14:35:50.247Z"
         }
       ],
+      "initialAmount": 500,
       "startDate": "2026-01-01",
       "marketType": "cdi",
       "marketId": "bitcoin",
@@ -195,8 +191,8 @@
         "type": "CDI",
         "rate": 110
       },
-      "lastSyncAt": "2026-05-14T00:18:17.924Z",
-      "createdAt": "2026-05-12T22:45:32.230Z"
+      "currentValue": 527.179044712334,
+      "lastSyncAt": "2026-05-13T21:18:03.469Z"
     },
     {
       "id": "3878c689-7607-46f5-baa2-ced3072b1310",
@@ -213,7 +209,9 @@
         "rate": 110
       },
       "lastSyncAt": "2026-05-13T15:21:10.867Z",
-      "createdAt": "2026-05-13T15:14:33.710Z"
+      "createdAt": "2026-05-13T15:14:33.710Z",
+      "amount": 200,
+      "date": "2026-05-13"
     }
   ],
   "goals": [
@@ -270,33 +268,6 @@
       "createdAt": "2026-05-13T04:01:28.024Z",
       "completedEmailSent": true,
       "completedAt": "2026-05-13T04:01:45.348Z"
-    },
-    {
-      "id": "4b29cf17-4bdd-4405-bdee-0b0e44967187",
-      "description": "Casa na praia",
-      "targetAmount": 750500,
-      "targetDate": "2030-12-01",
-      "category": "Casa",
-      "savedAmount": 750500,
-      "contributions": [
-        {
-          "id": "f30cb23b-8b3c-4acd-af12-c8b9776d28b9",
-          "amount": 700000,
-          "date": "2026-05-14",
-          "note": "premio",
-          "createdAt": "2026-05-14T00:30:21.588Z"
-        },
-        {
-          "id": "5e69c1d3-f2f5-47de-9b1d-659d79da05b0",
-          "amount": 50500,
-          "date": "2026-05-14",
-          "note": "software",
-          "createdAt": "2026-05-14T00:31:06.041Z"
-        }
-      ],
-      "createdAt": "2026-05-14T00:29:55.238Z",
-      "completedEmailSent": true,
-      "completedAt": "2026-05-14T00:31:10.420Z"
     }
   ],
   "billAlerts": {
@@ -312,13 +283,7 @@
     },
     "193c3d31-c1b4-49d1-8c75-04d4b22d3745": {
       "2026-05": {
-        "vencida": true,
-        "7dias": true
-      }
-    },
-    "7f5b33e1-ef93-4c88-9ba4-6d6fb37dc3c2": {
-      "2026-05": {
-        "hoje": true
+        "vencida": true
       }
     }
   }

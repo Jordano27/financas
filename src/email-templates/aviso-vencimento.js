@@ -1,61 +1,40 @@
-import { APP_URL } from '../config.js';
-
-// ── Helpers ────────────────────────────────────────────────────────────────────
-
-function fmt(v) {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
-}
-
-function escHtml(str) {
-    return String(str ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-}
-
-function fmtDate(yyyyMMdd) {
-    if (!yyyyMMdd) return '—';
-    const [y, m, d] = yyyyMMdd.split('-');
-    return `${d}/${m}/${y}`;
-}
-
-// ── Configuração visual por tipo ───────────────────────────────────────────────
+﻿import { APP_URL } from '../config.js';
+import { fmt, escHtml, fmtDate } from './email-helpers.js';
 
 const TIPO_CONFIG = {
-    '7dias': {
-        emoji: '📅',
-        cor: '#f59e0b',
-        corBg: '#fffbeb',
-        corBorda: '#fde68a',
-        titulo: 'Conta vence em 7 dias',
-        subtitulo: 'Você tem uma semana para efetuar o pagamento.',
-        badge: '7 DIAS',
-        badgeCor: '#f59e0b',
-        badgeBg: '#fef3c7',
-    },
-    'hoje': {
-        emoji: '⚠️',
-        cor: '#ea580c',
-        corBg: '#fff7ed',
-        corBorda: '#fed7aa',
-        titulo: 'Conta vence hoje',
-        subtitulo: 'O prazo de pagamento é hoje. Não deixe para depois!',
-        badge: 'VENCE HOJE',
-        badgeCor: '#ea580c',
-        badgeBg: '#ffedd5',
-    },
-    'vencida': {
-        emoji: '🚨',
-        cor: '#dc2626',
-        corBg: '#fef2f2',
-        corBorda: '#fecaca',
-        titulo: 'Conta vencida',
-        subtitulo: 'Esta conta passou do prazo de vencimento e ainda não foi paga.',
-        badge: 'VENCIDA',
-        badgeCor: '#dc2626',
-        badgeBg: '#fee2e2',
-    },
+  '7dias': {
+    emoji: '📅',
+    cor: '#f59e0b',
+    corBg: '#fffbeb',
+    corBorda: '#fde68a',
+    titulo: 'Conta vence em 7 dias',
+    subtitulo: 'Você tem uma semana para efetuar o pagamento.',
+    badge: '7 DIAS',
+    badgeCor: '#f59e0b',
+    badgeBg: '#fef3c7',
+  },
+  'hoje': {
+    emoji: '⚠️',
+    cor: '#ea580c',
+    corBg: '#fff7ed',
+    corBorda: '#fed7aa',
+    titulo: 'Conta vence hoje',
+    subtitulo: 'O prazo de pagamento é hoje. Não deixe para depois!',
+    badge: 'VENCE HOJE',
+    badgeCor: '#ea580c',
+    badgeBg: '#ffedd5',
+  },
+  'vencida': {
+    emoji: '🚨',
+    cor: '#dc2626',
+    corBg: '#fef2f2',
+    corBorda: '#fecaca',
+    titulo: 'Conta vencida',
+    subtitulo: 'Esta conta passou do prazo de vencimento e ainda não foi paga.',
+    badge: 'VENCIDA',
+    badgeCor: '#dc2626',
+    badgeBg: '#fee2e2',
+  },
 };
 
 // ── Builder ────────────────────────────────────────────────────────────────────
@@ -69,11 +48,11 @@ const TIPO_CONFIG = {
  * @param {string} opts.unsubToken
  */
 export function buildAvisoVencimentoEmail({ userName, bill, tipo, dueDate, unsubToken }) {
-    const cfg = TIPO_CONFIG[tipo];
-    const appUrl = APP_URL || 'http://localhost:3000';
-    const unsubUrl = `${appUrl}/api/auth/unsubscribe?token=${encodeURIComponent(unsubToken)}`;
+  const cfg = TIPO_CONFIG[tipo];
+  const appUrl = APP_URL || 'http://localhost:3000';
+  const unsubUrl = `${appUrl}/api/auth/unsubscribe?token=${encodeURIComponent(unsubToken)}`;
 
-    return `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">

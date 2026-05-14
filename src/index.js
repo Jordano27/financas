@@ -6,15 +6,14 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 import { getCategories } from './db.js';
+import { listUsers } from './users.js';
 import {
     addTransaction, addBill, getBills, deleteBill, deleteTransaction,
     toggleBill, getTransactions, getAllMonths,
     currentMonth, previousMonth, formatCurrency, formatMonthLabel, todayISO
 } from './transactions.js';
-import {
-    buildMonthStats, compareMonths, buildAverages,
-    printMonthReport, printComparison, printAverages, financialHealth
-} from './reports.js';
+import { buildMonthStats, compareMonths, buildAverages, financialHealth } from './reports.js';
+import { printMonthReport, printComparison, printAverages } from './cli-print.js';
 import { exportSpreadsheet } from './spreadsheet.js';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -60,6 +59,30 @@ function validateDate(input) {
     return true;
 }
 
+// ── CLI User Selection ───────────────────────────────────────────────────────
+
+let cliUserId;
+
+async function selectCliUser() {
+    const users = listUsers().filter(u => u.active);
+    if (!users.length) {
+        console.error(chalk.red('\nNenhum usuário encontrado. Crie um usuário primeiro pelo servidor web.\n'));
+        process.exit(1);
+    }
+    if (users.length === 1) {
+        cliUserId = users[0].id;
+        console.log(chalk.grey(`  Usuário: ${users[0].name} <${users[0].email}>\n`));
+        return;
+    }
+    clearScreen(); header();
+    console.log(chalk.bold('👤  SELECIONAR USUÁRIO\n'));
+    const { id } = await inquirer.prompt([{
+        type: 'list', name: 'id', message: 'Qual usuário deseja usar?',
+        choices: users.map(u => ({ name: `${u.name} <${u.email}>`, value: u.id }))
+    }]);
+    cliUserId = id;
+}
+
 // ── Sub-menus ─────────────────────────────────────────────────────────────────
 
 async function menuAddIncome() {
@@ -77,7 +100,7 @@ async function menuAddIncome() {
         }
     ]);
 
-    const t = addTransaction({
+    const t = addTransaction(cliUserId, {
         type: 'income',
         description: answers.description.trim(),
         amount: parseAmount(answers.amount),
@@ -104,7 +127,7 @@ async function menuAddExpense() {
         }
     ]);
 
-    const t = addTransaction({
+    const t = addTransaction(cliUserId, {
         type: 'expense',
         description: answers.description.trim(),
         amount: parseAmount(answers.amount),
@@ -128,7 +151,7 @@ async function menuAddBill() {
         { type: 'input', name: 'dueDay', message: 'Dia de vencimento (1-31):', validate: validateDay }
     ]);
 
-    const b = addBill({
+    const b = addBill(cliUserId, {
         description: answers.description.trim(),
         amount: parseAmount(answers.amount),
         category: answers.category,
@@ -143,7 +166,7 @@ async function menuListBills() {
     clearScreen(); header();
     console.log(chalk.bold.yellow('📋  CONTAS FIXAS CADASTRADAS\n'));
 
-    const bills = getBills();
+    const bills = getBills(cliUserId);
     if (!bills.length) {
         console.log(chalk.grey('Nenhuma conta fixa cadastrada ainda.'));
         await pressEnter(); return;
@@ -168,14 +191,14 @@ async function menuListBills() {
     if (action === 'Ativar/Desativar conta') {
         const choices = bills.map((b, i) => ({ name: `${i + 1}. ${b.description} — ${b.active ? '✅ Ativa' : '❌ Inativa'}`, value: b.id }));
         const { id } = await inquirer.prompt([{ type: 'list', name: 'id', message: 'Selecione:', choices }]);
-        toggleBill(id);
+        toggleBill(cliUserId, id);
         console.log(chalk.green('\n✅ Status atualizado.'));
         await pressEnter();
     } else if (action === 'Excluir conta') {
         const choices = bills.map((b, i) => ({ name: `${i + 1}. ${b.description} — ${formatCurrency(b.amount)}`, value: b.id }));
         const { id } = await inquirer.prompt([{ type: 'list', name: 'id', message: 'Selecione a conta para excluir:', choices }]);
         const { confirm } = await inquirer.prompt([{ type: 'confirm', name: 'confirm', message: chalk.red('Confirma exclusão?'), default: false }]);
-        if (confirm) { deleteBill(id); console.log(chalk.green('\n✅ Conta excluída.')); }
+        if (confirm) { deleteBill(cliUserId, id); console.log(chalk.green('\n✅ Conta excluída.')); }
         await pressEnter();
     }
 }
@@ -184,7 +207,7 @@ async function menuListTransactions() {
     clearScreen(); header();
     console.log(chalk.bold('📜  LANÇAMENTOS\n'));
 
-    const months = getAllMonths();
+    const months = getAllMonths(cliUserId);
     if (!months.length) {
         console.log(chalk.grey('Nenhum lançamento cadastrado ainda.'));
         await pressEnter(); return;
@@ -205,7 +228,7 @@ async function menuListTransactions() {
         ]
     }]);
 
-    const items = getTransactions({ month, type: typeFilter });
+    const items = getTransactions(cliUserId, { month, type: typeFilter });
 
     if (!items.length) {
         console.log(chalk.grey('\nNenhum lançamento encontrado.'));
@@ -234,7 +257,7 @@ async function menuListTransactions() {
         }));
         const { id } = await inquirer.prompt([{ type: 'list', name: 'id', message: 'Selecione:', choices }]);
         const { confirm } = await inquirer.prompt([{ type: 'confirm', name: 'confirm', message: chalk.red('Confirma exclusão?'), default: false }]);
-        if (confirm) { deleteTransaction(id); console.log(chalk.green('\n✅ Lançamento excluído.')); }
+        if (confirm) { deleteTransaction(cliUserId, id); console.log(chalk.green('\n✅ Lançamento excluído.')); }
         await pressEnter();
     }
 }
@@ -243,7 +266,7 @@ async function menuReports() {
     clearScreen(); header();
     console.log(chalk.bold('📊  RELATÓRIOS\n'));
 
-    const months = getAllMonths();
+    const months = getAllMonths(cliUserId);
     if (!months.length) {
         console.log(chalk.grey('Nenhum dado cadastrado ainda. Adicione ganhos e gastos primeiro.'));
         await pressEnter(); return;
@@ -266,18 +289,18 @@ async function menuReports() {
     }]);
 
     clearScreen(); header();
-    const stats = buildMonthStats(month);
+    const stats = buildMonthStats(cliUserId, month);
 
     if (reportType === 'summary' || reportType === 'all') {
         printMonthReport(stats, chalk, Table);
     }
     if (reportType === 'compare' || reportType === 'all') {
         const prevM = previousMonth(month);
-        const cmp = compareMonths(month, prevM);
+        const cmp = compareMonths(cliUserId, month, prevM);
         printComparison(cmp, chalk, Table);
     }
     if (reportType === 'averages' || reportType === 'all') {
-        const avgs = buildAverages(months);
+        const avgs = buildAverages(cliUserId, months);
         printAverages(avgs, chalk, Table);
     }
 
@@ -288,7 +311,7 @@ async function menuExport() {
     clearScreen(); header();
     console.log(chalk.bold('📤  EXPORTAR PLANILHA EXCEL\n'));
 
-    const months = getAllMonths();
+    const months = getAllMonths(cliUserId);
     if (!months.length) {
         console.log(chalk.grey('Nenhum dado cadastrado ainda.'));
         await pressEnter(); return;
@@ -302,7 +325,7 @@ async function menuExport() {
 
     console.log(chalk.yellow('\n⏳ Gerando planilha...'));
     try {
-        const filepath = await exportSpreadsheet(month);
+        const filepath = await exportSpreadsheet(cliUserId, month);
         console.log(chalk.green(`\n✅ Planilha exportada com sucesso!`));
         console.log(chalk.white(`📁 Arquivo: ${filepath}`));
     } catch (err) {
@@ -315,7 +338,7 @@ async function menuExport() {
 
 function quickOverview() {
     const month = currentMonth();
-    const stats = buildMonthStats(month);
+    const stats = buildMonthStats(cliUserId, month);
     const health = financialHealth(stats);
 
     console.log(chalk.bold(`  Mês atual: ${formatMonthLabel(month)}`));
@@ -373,7 +396,10 @@ async function mainMenu() {
 }
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
-mainMenu().catch(err => {
+(async () => {
+    await selectCliUser();
+    await mainMenu();
+})().catch(err => {
     console.error(chalk.red('Erro fatal:'), err);
     process.exit(1);
 });
