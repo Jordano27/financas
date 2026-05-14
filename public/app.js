@@ -317,6 +317,13 @@ function bindLogin() {
   });
 }
 
+// ── Search bar instances ─────────────────────────────────────────────────────
+let incomeSearch = null;
+let expenseSearch = null;
+let billsSearch = null;
+let investSearch = null;
+let goalsSearch = null;
+
 // ── State ─────────────────────────────────────────────────────────────────────
 const state = {
   page: 'dashboard',
@@ -764,6 +771,11 @@ function onMonthChange() {
   const y = document.getElementById('yearSelect').value;
   const m = document.getElementById('monthSelect').value;
   state.month = `${y}-${m}`;
+  if (incomeSearch) incomeSearch.reset();
+  if (expenseSearch) expenseSearch.reset();
+  if (billsSearch) billsSearch.reset();
+  if (investSearch) investSearch.reset();
+  if (goalsSearch) goalsSearch.reset();
   renderPage(state.page);
 }
 
@@ -1171,20 +1183,11 @@ async function renderCharts(currentStats) {
 }
 
 // ── Transactions ──────────────────────────────────────────────────────────────
-async function loadTransactions(type) {
-  const [items, stats] = await Promise.all([
-    api('GET', `/api/transactions?month=${state.month}&type=${type}`),
-    api('GET', `/api/stats/${state.month}`)
-  ]);
-
-  const total = type === 'income' ? stats.totalIncome : stats.totalExpense;
-  const label = type === 'income' ? '↑ Total de Ganhos' : '↓ Total de Gastos';
-  document.getElementById(`${type}-total`).textContent = `${label}: ${fmt(total)}`;
-
+function renderTransactionTable(items, type, isFiltered = false) {
   const container = document.getElementById(`${type}-table`);
 
   if (!items.length) {
-    container.innerHTML = emptyState('Nenhum lançamento neste mês');
+    container.innerHTML = emptyState(isFiltered ? 'Nenhum resultado encontrado' : 'Nenhum lançamento neste mês');
     return;
   }
 
@@ -1241,6 +1244,39 @@ async function loadTransactions(type) {
   });
 }
 
+async function loadTransactions(type) {
+  const [items, stats] = await Promise.all([
+    api('GET', `/api/transactions?month=${state.month}&type=${type}`),
+    api('GET', `/api/stats/${state.month}`)
+  ]);
+
+  const total = type === 'income' ? stats.totalIncome : stats.totalExpense;
+  const label = type === 'income' ? '↑ Total de Ganhos' : '↓ Total de Gastos';
+  document.getElementById(`${type}-total`).textContent = `${label}: ${fmt(total)}`;
+
+  if (type === 'income') {
+    if (!incomeSearch) {
+      incomeSearch = createSearchBar({
+        containerId: 'income-search-bar',
+        fields: ['description', 'category'],
+        placeholder: 'Buscar por descrição ou categoria…',
+        onFilter: (filtered, isFiltered) => renderTransactionTable(filtered, 'income', isFiltered),
+      });
+    }
+    incomeSearch.setItems(items);
+  } else {
+    if (!expenseSearch) {
+      expenseSearch = createSearchBar({
+        containerId: 'expense-search-bar',
+        fields: ['description', 'category'],
+        placeholder: 'Buscar por descrição ou categoria…',
+        onFilter: (filtered, isFiltered) => renderTransactionTable(filtered, 'expense', isFiltered),
+      });
+    }
+    expenseSearch.setItems(items);
+  }
+}
+
 // ── Bills ─────────────────────────────────────────────────────────────────────
 async function loadBills() {
   const bills = await api('GET', `/api/bills?month=${state.month}`);
@@ -1251,14 +1287,26 @@ async function loadBills() {
   document.getElementById('bills-total').textContent =
     `Contas ativas: ${fmt(totalActive)}/mês · Pago em ${fmtMonth(state.month)}: ${fmt(totalPaid)}`;
 
+  if (!billsSearch) {
+    billsSearch = createSearchBar({
+      containerId: 'bills-search-bar',
+      fields: ['description', 'category'],
+      placeholder: 'Buscar por descrição ou categoria…',
+      onFilter: (filtered, isFiltered) => renderBillsGrid(filtered, isFiltered),
+    });
+  }
+  billsSearch.setItems(bills);
+}
+
+function renderBillsGrid(items, isFiltered = false) {
   const grid = document.getElementById('bills-grid');
 
-  if (!bills.length) {
-    grid.innerHTML = `<div class="card">${emptyState('Nenhuma conta fixa cadastrada')}</div>`;
+  if (!items.length) {
+    grid.innerHTML = `<div class="card">${emptyState(isFiltered ? 'Nenhum resultado encontrado' : 'Nenhuma conta fixa cadastrada')}</div>`;
     return;
   }
 
-  grid.innerHTML = bills.map(b => {
+  grid.innerHTML = items.map(b => {
     const isPaid = (b.paidMonths || []).includes(state.month);
 
     // Calcular vencimento: comparar mês selecionado com hoje
@@ -1347,33 +1395,36 @@ async function loadInvestments() {
   }
 
   if (!items || !items.length) {
-    grid.innerHTML = emptyState('Nenhum investimento cadastrado. Adicione sua carteira!');
     totalEl.textContent = 'Total investido: R$ 0,00';
+  } else {
+    const totalInvestido = items.reduce((s, i) => s + (i.initialAmount || 0), 0);
+    const totalAtual = items.reduce((s, i) => s + (i.currentValue ?? i.initialAmount ?? 0), 0);
+    const totalGain = totalAtual - totalInvestido;
+    const gainArrow = totalGain >= 0 ? '▲' : '▼';
+    const gainColor = totalGain >= 0 ? 'var(--income)' : 'var(--expense)';
+    totalEl.innerHTML = `Investido: <strong>${fmt(totalInvestido)}</strong> · Atual: <strong>${fmt(totalAtual)}</strong> · <span style="color:${gainColor}">${gainArrow} ${fmt(Math.abs(totalGain))}</span>`;
+  }
+
+  if (!investSearch) {
+    investSearch = createSearchBar({
+      containerId: 'invest-search-bar',
+      fields: ['description', 'category'],
+      placeholder: 'Buscar por descrição ou categoria…',
+      onFilter: (filtered, isFiltered) => renderInvestmentsGrid(filtered, isFiltered),
+    });
+  }
+  investSearch.setItems(items || []);
+}
+
+function renderInvestmentsGrid(items, isFiltered = false) {
+  const grid = document.getElementById('invest-grid');
+
+  if (!items.length) {
+    grid.innerHTML = emptyState(isFiltered ? 'Nenhum resultado encontrado' : 'Nenhum investimento cadastrado. Adicione sua carteira!');
     return;
   }
 
-  const totalInvestido = items.reduce((s, i) => s + (i.initialAmount || 0), 0);
-  const totalAtual = items.reduce((s, i) => s + (i.currentValue ?? i.initialAmount ?? 0), 0);
-  const totalGain = totalAtual - totalInvestido;
-  const gainArrow = totalGain >= 0 ? '▲' : '▼';
-  const gainColor = totalGain >= 0 ? 'var(--income)' : 'var(--expense)';
-  totalEl.innerHTML = `Investido: <strong>${fmt(totalInvestido)}</strong> · Atual: <strong>${fmt(totalAtual)}</strong> · <span style="color:${gainColor}">${gainArrow} ${fmt(Math.abs(totalGain))}</span>`;
-
   grid.innerHTML = items.map(renderInvestCard).join('');
-
-  grid.querySelectorAll('[data-invest-contrib]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const inv = items.find(i => i.id === btn.dataset.investContrib);
-      if (inv) showInvestContribModal(inv);
-    });
-  });
-
-  grid.querySelectorAll('[data-invest-value]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const inv = items.find(i => i.id === btn.dataset.investValue);
-      if (inv) showInvestValueModal(inv);
-    });
-  });
 
   const freshGrid = grid.cloneNode(false);
   freshGrid.innerHTML = grid.innerHTML;
@@ -1979,42 +2030,57 @@ async function loadGoals() {
     return;
   }
 
-  if (!goals || goals.length === 0) {
-    grid.innerHTML = emptyState('Nenhuma meta cadastrada. Crie sua primeira meta!');
-    summary.textContent = '0 Metas';
+  const total = (goals || []).length;
+  const done = (goals || []).filter(g => (g.savedAmount || 0) >= g.targetAmount).length;
+  summary.textContent = total > 0
+    ? `${total} Meta${total !== 1 ? 's' : ''} · ${done} concluída${done !== 1 ? 's' : ''}`
+    : '0 Metas';
+
+  if (!goalsSearch) {
+    goalsSearch = createSearchBar({
+      containerId: 'goals-search-bar',
+      fields: ['description', 'category'],
+      placeholder: 'Buscar por descrição ou categoria…',
+      onFilter: (filtered, isFiltered) => renderGoalsGrid(filtered, isFiltered),
+    });
+  }
+  goalsSearch.setItems(goals || []);
+}
+
+function renderGoalsGrid(items, isFiltered = false) {
+  const grid = document.getElementById('goals-grid');
+
+  if (!items.length) {
+    grid.innerHTML = emptyState(isFiltered ? 'Nenhum resultado encontrado' : 'Nenhuma meta cadastrada. Crie sua primeira meta!');
     return;
   }
 
-  const total = goals.length;
-  const done = goals.filter(g => (g.savedAmount || 0) >= g.targetAmount).length;
-  summary.textContent = `${total} Meta${total !== 1 ? 's' : ''} · ${done} concluída${done !== 1 ? 's' : ''}`;
-
-  grid.innerHTML = goals.map(renderGoalCard).join('');
+  grid.innerHTML = items.map(renderGoalCard).join('');
 
   grid.querySelectorAll('[data-view-contributions]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const goal = goals.find(g => g.id === btn.dataset.viewContributions);
-      if (goal) showContributionsModal(goal, goals);
+      const goal = items.find(g => g.id === btn.dataset.viewContributions);
+      if (goal) showContributionsModal(goal, items);
     });
   });
 
   grid.querySelectorAll('[data-contribute-goal]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const goal = goals.find(g => g.id === btn.dataset.contributeGoal);
+      const goal = items.find(g => g.id === btn.dataset.contributeGoal);
       if (goal) showContributeModal(goal);
     });
   });
 
   grid.querySelectorAll('[data-edit-goal]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const goal = goals.find(g => g.id === btn.dataset.editGoal);
+      const goal = items.find(g => g.id === btn.dataset.editGoal);
       if (goal) showGoalModal(goal);
     });
   });
 
   grid.querySelectorAll('[data-del-goal]').forEach(btn => {
     btn.addEventListener('click', async () => {
-      const goal = goals.find(g => g.id === btn.dataset.delGoal);
+      const goal = items.find(g => g.id === btn.dataset.delGoal);
       if (!goal) return;
       const ok = await confirmDelete(`Excluir a meta "${goal.description}"?`);
       if (!ok) return;
@@ -2023,7 +2089,6 @@ async function loadGoals() {
       loadGoals();
     });
   });
-
 }
 
 function showGoalModal(goal = null) {

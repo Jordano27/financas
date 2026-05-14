@@ -1,6 +1,34 @@
 {
-  "transactions": [],
-  "bills": [],
+  "transactions": [
+    {
+      "id": "45174ccc-13df-400b-9bf1-4fdf86100713",
+      "type": "income",
+      "description": "salario mensal",
+      "amount": 2000,
+      "category": "Salário",
+      "date": "2026-05-14",
+      "createdAt": "2026-05-14T04:30:33.443Z"
+    }
+  ],
+  "bills": [
+    {
+      "id": "0e7ac6f1-1f23-4967-a703-fd33492a7516",
+      "description": "agua",
+      "amount": 100,
+      "category": "Água",
+      "dueDay": 15,
+      "active": true,
+      "createdAt": "2026-05-14T04:31:23.282Z",
+      "paidMonths": [
+        "2026-05"
+      ],
+      "monthOverrides": {
+        "2026-05": {
+          "deleted": true
+        }
+      }
+    }
+  ],
   "investments": [],
   "goals": []
 }
