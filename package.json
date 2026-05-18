@@ -3,10 +3,10 @@
     "version": "1.0.0",
     "description": "Gerenciador Financeiro",
     "type": "module",
-    "main": "src/server.js",
+    "main": "server.js",
     "scripts": {
-        "start": "node src/server.js",
-        "cli": "node src/index.js"
+        "start": "node server.js",
+        "cli": "node src/cli/index.js"
     },
     "dependencies": {
         "async-mutex": "^0.5.0",

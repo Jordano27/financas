@@ -82,9 +82,13 @@
       "active": true,
       "createdAt": "2026-05-08T16:17:36.320Z",
       "paidMonths": [
-        "2026-04",
-        "2026-05"
-      ]
+        "2026-04"
+      ],
+      "monthOverrides": {
+        "2026-05": {
+          "active": false
+        }
+      }
     },
     {
       "id": "ce9e32c5-7cf2-4d78-855d-d882278b27f5",
@@ -95,7 +99,8 @@
       "active": true,
       "createdAt": "2026-05-08T16:18:37.425Z",
       "paidMonths": [
-        "2026-04"
+        "2026-04",
+        "2026-05"
       ]
     },
     {
@@ -147,14 +152,15 @@
       "active": true,
       "createdAt": "2026-05-12T23:39:16.042Z",
       "paidMonths": [
-        "2026-04"
+        "2026-04",
+        "2026-05"
       ],
       "monthOverrides": {
         "2026-05": {
           "description": "Prime Video",
           "amount": 20,
           "category": "Streaming",
-          "dueDay": 20
+          "dueDay": 2
         }
       }
     }
@@ -165,7 +171,7 @@
       "description": "CDB",
       "category": "CDB",
       "initialAmount": 500,
-      "currentValue": 527.179044712334,
+      "currentValue": 527.7985565512658,
       "contributions": [
         {
           "id": "f2e9fe7c-72de-407c-825d-9fb338aeb3b3",
@@ -196,25 +202,72 @@
         "type": "CDI",
         "rate": 110
       },
-      "lastSyncAt": "2026-05-14T00:18:17.924Z",
+      "lastSyncAt": "2026-05-15T19:42:08.810Z",
       "createdAt": "2026-05-12T22:45:32.230Z"
     },
     {
-      "id": "3878c689-7607-46f5-baa2-ced3072b1310",
+      "id": "526a8349-14a9-434c-997b-5158b381722a",
       "description": "PETR4",
       "category": "CDB",
-      "initialAmount": 200,
-      "currentValue": 200,
-      "contributions": [],
-      "startDate": "2026-05-13",
+      "initialAmount": 1000,
+      "currentValue": 1039.0885180223102,
+      "contributions": [
+        {
+          "id": "bbb039aa-41e7-4599-9fc3-9be2a8b98472",
+          "amount": 300,
+          "date": "2026-03-08",
+          "note": "",
+          "createdAt": "2026-05-15T10:43:49.339Z"
+        },
+        {
+          "id": "8b0b4a85-0a11-4f5d-920d-6930bf7e8951",
+          "amount": 500,
+          "date": "2026-04-15",
+          "note": "",
+          "createdAt": "2026-05-15T10:44:58.362Z"
+        }
+      ],
+      "startDate": "2026-02-08",
       "marketType": "cdi",
       "marketId": null,
       "rateInfo": {
         "type": "CDI",
         "rate": 110
       },
-      "lastSyncAt": "2026-05-13T15:21:10.867Z",
-      "createdAt": "2026-05-13T15:14:33.710Z"
+      "lastSyncAt": "2026-05-15T19:42:08.343Z",
+      "createdAt": "2026-05-15T10:43:31.495Z"
+    },
+    {
+      "id": "a0b6c2a5-6967-4c8d-b68f-295a27401667",
+      "description": "CDB banco inter",
+      "category": "Fundos de Investimento",
+      "initialAmount": 10600,
+      "currentValue": 11189.329398886835,
+      "contributions": [
+        {
+          "id": "fe7b5a01-d40b-4b2f-a368-38e5020db4e8",
+          "amount": 200,
+          "date": "2026-03-08",
+          "note": "",
+          "createdAt": "2026-05-15T10:47:00.559Z"
+        },
+        {
+          "id": "d90106aa-810e-4026-b1ec-ae8f5f288529",
+          "amount": 400,
+          "date": "2026-04-12",
+          "note": "",
+          "createdAt": "2026-05-15T10:47:37.166Z"
+        }
+      ],
+      "startDate": "2026-01-01",
+      "marketType": "cdi",
+      "marketId": null,
+      "rateInfo": {
+        "type": "CDI",
+        "rate": 110
+      },
+      "lastSyncAt": "2026-05-15T19:42:08.882Z",
+      "createdAt": "2026-05-15T10:46:30.174Z"
     }
   ],
   "goals": [
@@ -253,26 +306,6 @@
       "completedAt": "2026-05-13T03:51:46.380Z"
     },
     {
-      "id": "1c0f4077-ea00-4126-a130-bd3fb85e3864",
-      "description": "VIAGEM paris",
-      "targetAmount": 20000,
-      "targetDate": "2026-12-01",
-      "category": "VIAGEM",
-      "savedAmount": 20000,
-      "contributions": [
-        {
-          "id": "f634ae3b-aa71-4c24-b80e-d8fdac91450a",
-          "amount": 20000,
-          "date": "2026-05-13",
-          "note": "",
-          "createdAt": "2026-05-13T04:01:41.628Z"
-        }
-      ],
-      "createdAt": "2026-05-13T04:01:28.024Z",
-      "completedEmailSent": true,
-      "completedAt": "2026-05-13T04:01:45.348Z"
-    },
-    {
       "id": "4b29cf17-4bdd-4405-bdee-0b0e44967187",
       "description": "Casa na praia",
       "targetAmount": 750500,
@@ -298,6 +331,40 @@
       "createdAt": "2026-05-14T00:29:55.238Z",
       "completedEmailSent": true,
       "completedAt": "2026-05-14T00:31:10.420Z"
+    },
+    {
+      "id": "681afb68-571a-4e6e-abec-7ea0eb4da988",
+      "description": "casamento",
+      "targetAmount": 100000,
+      "targetDate": "2029-12-01",
+      "category": "Geral",
+      "savedAmount": 100125.58,
+      "contributions": [
+        {
+          "id": "f4418175-61ce-4237-b330-b2c9d4fe8a64",
+          "amount": 2325.58,
+          "date": "2026-05-15",
+          "note": "",
+          "createdAt": "2026-05-15T10:33:53.233Z"
+        },
+        {
+          "id": "6a805f5c-ee8b-4077-a178-ba6a432c78e8",
+          "amount": 50000,
+          "date": "2026-05-15",
+          "note": "",
+          "createdAt": "2026-05-15T10:34:06.725Z"
+        },
+        {
+          "id": "eda17310-db61-423b-84b9-6831aeef40cb",
+          "amount": 47800,
+          "date": "2026-05-15",
+          "note": "",
+          "createdAt": "2026-05-15T10:34:38.080Z"
+        }
+      ],
+      "createdAt": "2026-05-15T10:33:43.444Z",
+      "completedEmailSent": true,
+      "completedAt": "2026-05-15T10:34:42.128Z"
     }
   ],
   "billAlerts": {
@@ -318,6 +385,17 @@
       }
     },
     "7f5b33e1-ef93-4c88-9ba4-6d6fb37dc3c2": {
+      "2026-05": {
+        "hoje": true,
+        "vencida": true
+      }
+    },
+    "d6a451f2-efab-4957-a79f-ab5fe3d831da": {
+      "2026-05": {
+        "hoje": true
+      }
+    },
+    "fdcb67eb-f372-41a3-92a8-5e1e83967106": {
       "2026-05": {
         "hoje": true
       }

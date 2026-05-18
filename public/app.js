@@ -962,7 +962,7 @@ function renderStatCards(stats, prevStats) {
       </div>
       <div class="stat-card__label">Saldo</div>
       <div class="stat-card__value" style="color:${balance >= 0 ? 'var(--income)' : 'var(--expense)'}">${fmt(balance)}</div>
-      <div class="stat-card__sub ${balance >= 0 ? 'up' : 'down'}">${savingsRate.toFixed(1)}% poupado</div>
+      <div class="stat-card__sub ${balance >= 0 ? 'up' : 'down'}">${savingsRate.toFixed(1)}% poupado · ${fmt(totalInvested ?? 0)} investido</div>
     </div>
     <div class="stat-card invest">
       <div class="stat-card__icon">

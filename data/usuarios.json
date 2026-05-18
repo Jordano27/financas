@@ -94,5 +94,16 @@
     "plan": "free",
     "active": true,
     "createdAt": "2026-05-12T00:07:50.760Z"
+  },
+  {
+    "id": "e223ddfd-bf29-4191-bc0f-f62db64d4aad",
+    "name": "Jordano Poletto",
+    "email": "jordanopoletto93155@gmail.com",
+    "passwordHash": "0851996f10c4629aa46e59b19483609736361c2cd91157908d6f68dffc5e763381d447b979ef420143ebc260d6c747622a1e70d60fdead4b6510327106d16082",
+    "salt": "8ef8030f66a9c8912fe04b435bbc5658",
+    "role": "user",
+    "plan": "free",
+    "active": true,
+    "createdAt": "2026-05-15T02:23:28.067Z"
   }
 ]
