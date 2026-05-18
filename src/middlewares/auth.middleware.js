@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { JWT_SECRET } from '../config/app.js';
+import { isBlacklisted } from '../utils/tokenBlacklist.js';
 
 export function requireAuth(req, res, next) {
     const header = req.headers['authorization'];
@@ -8,7 +9,11 @@ export function requireAuth(req, res, next) {
     }
     const token = header.slice(7);
     try {
-        req.user = jwt.verify(token, JWT_SECRET);
+        const payload = jwt.verify(token, JWT_SECRET);
+        if (payload.jti && isBlacklisted(payload.jti)) {
+            return res.status(401).json({ error: 'Token revogado. Faça login novamente.' });
+        }
+        req.user = payload;
         next();
     } catch {
         return res.status(401).json({ error: 'Token inválido ou expirado' });

@@ -11,6 +11,7 @@ import { findUserById, updateUser as updateUserModel } from '../models/usuario.m
 import { setEmailOptOut, validateUserUpdate } from '../services/usuario.service.js';
 import { requirePremium } from '../middlewares/auth.middleware.js';
 import { requireFields, parsePositiveFloat } from '../utils/validacao.js';
+import { addToBlacklist } from '../utils/tokenBlacklist.js';
 
 export const exportLimiter = rateLimit({
     windowMs: 10 * 60 * 1000,
@@ -108,6 +109,10 @@ export function updateMe(req, res) {
         const errors = validateUserUpdate({ name, email, password });
         if (errors.length) return res.status(400).json({ error: errors[0] });
         const updated = updateUserModel(req.user.sub, { name, email, password });
+        // Invalida o token atual quando a senha é alterada
+        if (password && req.user.jti) {
+            addToBlacklist(req.user.jti, req.user.exp * 1000);
+        }
         res.json(updated);
     } catch (e) { res.status(400).json({ error: e.message }); }
 }

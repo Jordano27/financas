@@ -233,6 +233,7 @@ function bindLogin() {
       document.getElementById('chatOptions').innerHTML = '';
       document.getElementById('chatWindow').classList.add('hidden');
       await init();
+      SessionManager.start();
     } catch (err) {
       errEl.textContent = err.message;
       errEl.classList.remove('hidden');
@@ -293,6 +294,7 @@ function bindLogin() {
   });
 
   document.getElementById('logoutBtn').addEventListener('click', () => {
+    SessionManager.stop();
     clearToken();
     Object.values(state.charts).forEach(c => c.destroy?.());
     state.charts = {};
@@ -332,6 +334,51 @@ const state = {
   categories: { income: [], expense: [], bill: [], investment: [] },
   charts: {}
 };
+
+// ── Session timeout (auto-logout por inatividade) ─────────────────────────────
+const SessionManager = (() => {
+  const TIMEOUT_MS = 30 * 60 * 1000; // 30 minutos
+  const EVENTS = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'];
+  let _timer = null;
+
+  function _reset() {
+    clearTimeout(_timer);
+    _timer = setTimeout(_forceLogout, TIMEOUT_MS);
+  }
+
+  async function _forceLogout() {
+    stop();
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+    } catch { /* ignora erros de rede */ }
+    clearToken();
+    Object.values(state.charts).forEach(c => c.destroy?.());
+    state.charts = {};
+    state.month = '';
+    state.months = [];
+    document.getElementById('chatMessages').innerHTML = '';
+    document.getElementById('chatOptions').innerHTML = '';
+    document.getElementById('chatWindow').classList.add('hidden');
+    showLoginOverlay();
+    toast('Sessão encerrada por inatividade.', 'info');
+  }
+
+  function start() {
+    EVENTS.forEach(ev => document.addEventListener(ev, _reset, { passive: true }));
+    _reset();
+  }
+
+  function stop() {
+    clearTimeout(_timer);
+    _timer = null;
+    EVENTS.forEach(ev => document.removeEventListener(ev, _reset));
+  }
+
+  return { start, stop };
+})();
 
 // ── API ───────────────────────────────────────────────────────────────────────
 async function api(method, path, body) {
@@ -3027,6 +3074,7 @@ function bindExport() {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       });
       if (res.status === 401) {
+        SessionManager.stop();
         clearToken();
         showLoginOverlay();
         return;
@@ -3353,6 +3401,7 @@ async function showMyAccountModal() {
         toast('Dados atualizados! Faça login novamente para continuar.', 'success');
         closeModal();
         setTimeout(() => {
+          SessionManager.stop();
           clearToken();
           Object.values(state.charts).forEach(c => c.destroy?.());
           state.charts = {};

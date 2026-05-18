@@ -1,8 +1,10 @@
+import { randomUUID } from 'crypto';
 import rateLimit from 'express-rate-limit';
 import jwt from 'jsonwebtoken';
 import { JWT_SECRET, JWT_EXPIRES } from '../config/app.js';
 import { findUserByEmail, registerUser, verifyPassword } from '../models/usuario.model.js';
 import { validateUserInput, unsubscribeByToken } from '../services/usuario.service.js';
+import { addToBlacklist } from '../utils/tokenBlacklist.js';
 
 export const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -18,20 +20,30 @@ export function login(req, res) {
         return res.status(400).json({ error: 'E-mail e senha são obrigatórios' });
     }
     const user = findUserByEmail(email);
-    if (!user || !verifyPassword(user, password)) {
+    // Verifica active ANTES de verifyPassword para não confirmar senha de contas desativadas
+    if (!user || user.active === false || !verifyPassword(user, password)) {
         return res.status(401).json({ error: 'E-mail ou senha incorretos' });
-    }
-    if (user.active === false) {
-        return res.status(403).json({ error: 'Sua conta está desativada. Entre em contato com o administrador.' });
     }
     const role = user.role || 'user';
     const plan = user.plan || 'free';
+    const jti = randomUUID();
     const token = jwt.sign(
-        { sub: user.id, name: user.name, email: user.email, role, plan },
+        { sub: user.id, name: user.name, email: user.email, role, plan, jti },
         JWT_SECRET,
         { expiresIn: JWT_EXPIRES }
     );
     res.json({ token, expiresIn: JWT_EXPIRES, name: user.name, role, plan });
+}
+
+export function logout(req, res) {
+    const header = req.headers['authorization'];
+    if (header?.startsWith('Bearer ')) {
+        try {
+            const payload = jwt.verify(header.slice(7), JWT_SECRET);
+            if (payload.jti) addToBlacklist(payload.jti, payload.exp * 1000);
+        } catch { /* token já expirado — sem ação necessária */ }
+    }
+    res.json({ ok: true });
 }
 
 export function register(req, res) {

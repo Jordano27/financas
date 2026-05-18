@@ -202,7 +202,7 @@
         "type": "CDI",
         "rate": 110
       },
-      "lastSyncAt": "2026-05-15T19:42:08.810Z",
+      "lastSyncAt": "2026-05-18T10:09:22.570Z",
       "createdAt": "2026-05-12T22:45:32.230Z"
     },
     {
@@ -234,40 +234,8 @@
         "type": "CDI",
         "rate": 110
       },
-      "lastSyncAt": "2026-05-15T19:42:08.343Z",
+      "lastSyncAt": "2026-05-18T10:09:22.398Z",
       "createdAt": "2026-05-15T10:43:31.495Z"
-    },
-    {
-      "id": "a0b6c2a5-6967-4c8d-b68f-295a27401667",
-      "description": "CDB banco inter",
-      "category": "Fundos de Investimento",
-      "initialAmount": 10600,
-      "currentValue": 11189.329398886835,
-      "contributions": [
-        {
-          "id": "fe7b5a01-d40b-4b2f-a368-38e5020db4e8",
-          "amount": 200,
-          "date": "2026-03-08",
-          "note": "",
-          "createdAt": "2026-05-15T10:47:00.559Z"
-        },
-        {
-          "id": "d90106aa-810e-4026-b1ec-ae8f5f288529",
-          "amount": 400,
-          "date": "2026-04-12",
-          "note": "",
-          "createdAt": "2026-05-15T10:47:37.166Z"
-        }
-      ],
-      "startDate": "2026-01-01",
-      "marketType": "cdi",
-      "marketId": null,
-      "rateInfo": {
-        "type": "CDI",
-        "rate": 110
-      },
-      "lastSyncAt": "2026-05-15T19:42:08.882Z",
-      "createdAt": "2026-05-15T10:46:30.174Z"
     }
   ],
   "goals": [

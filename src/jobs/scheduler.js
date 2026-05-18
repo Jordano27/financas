@@ -22,17 +22,10 @@ export function initScheduler() {
         });
     });
 
-    // Avisos de contas: "7 dias" e "vence hoje" — todo dia às 08:00
-    cron.schedule('0 8 * * *', () => {
+    // Avisos de contas: "7 dias", "vence hoje" e "vencidas" — todo dia às 00:01
+    cron.schedule('1 0 * * *', () => {
         runAvisoVencimento().catch(err => {
-            console.error('[Scheduler] Erro crítico no job de avisos (08h):', err);
-        });
-    });
-
-    // Avisos de contas vencidas — todo dia às 09:00
-    cron.schedule('0 9 * * *', () => {
-        runAvisoVencimento().catch(err => {
-            console.error('[Scheduler] Erro crítico no job de avisos (09h):', err);
+            console.error('[Scheduler] Erro crítico no job de avisos (00:01):', err);
         });
     });
 
@@ -51,7 +44,7 @@ export function initScheduler() {
     });
 
     console.log('[Scheduler] Job mensal registrado — disparará todo dia 1 às 00:01.');
-    console.log('[Scheduler] Job de avisos registrado — verifica todo dia às 08:00 e 09:00.');
+    console.log('[Scheduler] Job de avisos registrado — verifica todo dia às 00:01.');
     console.log('[Scheduler] Job de cotações registrado — sincroniza todo dia às 07:00.');
     console.log('[Scheduler] Job de relatório de investimentos registrado — envia todo dia às 08:00 (premium).');
     console.log('[Scheduler] Emails de metas concluídas são disparados por evento ao adicionar contribuição.');
