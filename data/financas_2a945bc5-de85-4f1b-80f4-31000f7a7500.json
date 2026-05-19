@@ -71,7 +71,8 @@
       "paidMonths": [
         "2026-04",
         "2026-05"
-      ]
+      ],
+      "monthOverrides": {}
     },
     {
       "id": "f895aa05-4d96-4be7-bc2f-68e83694ee67",
@@ -82,13 +83,10 @@
       "active": true,
       "createdAt": "2026-05-08T16:17:36.320Z",
       "paidMonths": [
-        "2026-04"
+        "2026-04",
+        "2026-05"
       ],
-      "monthOverrides": {
-        "2026-05": {
-          "active": false
-        }
-      }
+      "monthOverrides": {}
     },
     {
       "id": "ce9e32c5-7cf2-4d78-855d-d882278b27f5",
