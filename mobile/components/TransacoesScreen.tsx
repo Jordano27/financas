@@ -5,7 +5,9 @@ import {
 } from 'react-native';
 import { api } from '@/services/api';
 import { useToast } from '@/contexts/ToastContext';
+import { useSidebar } from '@/contexts/SidebarContext';
 import { SeletorMes } from '@/components/SeletorMes';
+import { IconMenu, IconEdit, IconTrash } from '@/components/Icon';
 import { currentMonth, fmt, fmtDate, todayISO } from '@/utils/format';
 import { colors, fontSize, fontWeight, radius, shadow, spacing } from '@/constants/theme';
 
@@ -23,15 +25,17 @@ interface Props {
 }
 
 function TransactionModal({
-    visible, onClose, onSaved, categories, initial,
+    visible, onClose, onSaved, categories, initial, type,
 }: {
     visible: boolean;
     onClose: () => void;
     onSaved: () => void;
     categories: string[];
     initial?: Transaction | null;
+    type: 'income' | 'expense';
 }) {
     const toast = useToast();
+    const accent = type === 'income' ? colors.income : colors.expense;
     const [description, setDescription] = useState(initial?.description ?? '');
     const [amount, setAmount] = useState(initial ? String(initial.amount) : '');
     const [category, setCategory] = useState(initial?.category ?? (categories[0] ?? ''));
@@ -48,18 +52,18 @@ function TransactionModal({
     }, [visible, initial]);
 
     async function save() {
+        if (!category) { toast('Selecione a categoria', 'error'); return; }
         if (!description.trim()) { toast('Informe a descrição', 'error'); return; }
         const val = parseFloat(amount.replace(',', '.'));
         if (!val || val <= 0) { toast('Valor inválido', 'error'); return; }
-        if (!category) { toast('Selecione a categoria', 'error'); return; }
         setSaving(true);
         try {
             if (initial) {
                 await api('PUT', `/transactions/${initial.id}`, { description: description.trim(), amount: val, category, date });
                 toast('Lançamento atualizado', 'success');
             } else {
-                await api('POST', '/transactions', { type: initial ? undefined : undefined, description: description.trim(), amount: val, category, date });
-                toast('Lançamento adicionado', 'success');
+                await api('POST', '/transactions', { type, description: description.trim(), amount: val, category, date });
+                toast(type === 'income' ? 'Ganho adicionado!' : 'Gasto adicionado!', 'success');
             }
             onSaved();
         } catch (e: unknown) {
@@ -69,35 +73,44 @@ function TransactionModal({
         }
     }
 
+    const title = initial
+        ? (type === 'income' ? 'Editar Ganho' : 'Editar Gasto')
+        : (type === 'income' ? '+ Adicionar Ganho' : '+ Adicionar Gasto');
+
     return (
         <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
             <Pressable style={s.backdrop} onPress={onClose} />
             <View style={s.sheet}>
-                <Text style={s.sheetTitle}>{initial ? 'Editar Lançamento' : 'Novo Lançamento'}</Text>
+                <Text style={s.sheetTitle}>{title}</Text>
                 <ScrollView keyboardShouldPersistTaps="handled">
-                    <Text style={s.label}>Descrição *</Text>
-                    <TextInput style={s.input} value={description} onChangeText={setDescription} placeholder="Ex: Salário" placeholderTextColor={colors.textMuted} />
-
-                    <Text style={s.label}>Valor (R$) *</Text>
-                    <TextInput style={s.input} value={amount} onChangeText={setAmount} placeholder="0,00" placeholderTextColor={colors.textMuted} keyboardType="numeric" />
-
-                    <Text style={s.label}>Data *</Text>
-                    <TextInput style={s.input} value={date} onChangeText={setDate} placeholder="AAAA-MM-DD" placeholderTextColor={colors.textMuted} />
-
                     <Text style={s.label}>Categoria *</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: spacing.md }}>
                         <View style={{ flexDirection: 'row', gap: spacing.xs }}>
                             {categories.map(c => (
-                                <TouchableOpacity key={c} style={[s.chip, category === c && s.chipActive]} onPress={() => setCategory(c)}>
+                                <TouchableOpacity key={c} style={[s.chip, category === c && { backgroundColor: accent, borderColor: accent }]} onPress={() => setCategory(c)}>
                                     <Text style={[s.chipText, category === c && s.chipTextActive]}>{c}</Text>
                                 </TouchableOpacity>
                             ))}
                         </View>
                     </ScrollView>
 
+                    <Text style={s.label}>Descrição *</Text>
+                    <TextInput style={s.input} value={description} onChangeText={setDescription} placeholder="Ex: Salário" placeholderTextColor={colors.textMuted} />
+
+                    <View style={s.formRow}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={s.label}>Valor (R$) *</Text>
+                            <TextInput style={s.input} value={amount} onChangeText={setAmount} placeholder="0,00" placeholderTextColor={colors.textMuted} keyboardType="numeric" />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <Text style={s.label}>Data *</Text>
+                            <TextInput style={s.input} value={date} onChangeText={setDate} placeholder="AAAA-MM-DD" placeholderTextColor={colors.textMuted} />
+                        </View>
+                    </View>
+
                     <View style={s.row}>
                         <TouchableOpacity style={s.btnGhost} onPress={onClose}><Text style={s.btnGhostText}>Cancelar</Text></TouchableOpacity>
-                        <TouchableOpacity style={s.btnPrimary} onPress={save} disabled={saving}>
+                        <TouchableOpacity style={[s.btnPrimary, { backgroundColor: accent }]} onPress={save} disabled={saving}>
                             {saving ? <ActivityIndicator color="#fff" /> : <Text style={s.btnText}>Salvar</Text>}
                         </TouchableOpacity>
                     </View>
@@ -109,6 +122,7 @@ function TransactionModal({
 
 export function TransacoesScreen({ type }: Props) {
     const toast = useToast();
+    const { open: openSidebar } = useSidebar();
     const accent = type === 'income' ? colors.income : colors.expense;
     const label = type === 'income' ? 'Ganhos' : 'Gastos';
 
@@ -166,14 +180,21 @@ export function TransacoesScreen({ type }: Props) {
         <View style={s.root}>
             {/* Header */}
             <View style={s.header}>
-                <View>
+                <TouchableOpacity onPress={openSidebar} style={s.hamburger} hitSlop={8}>
+                    <IconMenu color={colors.textPrimary} size={22} />
+                </TouchableOpacity>
+                <View style={s.headerInfo}>
                     <Text style={s.headerTitle}>{label}</Text>
-                    <Text style={[s.headerTotal, { color: accent }]}>{fmt(total)}</Text>
+                    <View style={[s.summaryPill, { backgroundColor: type === 'income' ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)' }]}>
+                        <Text style={[s.summaryPillText, { color: accent }]}>
+                            {type === 'income' ? '\u2191' : '\u2193'} {label}: {fmt(total)}
+                        </Text>
+                    </View>
                 </View>
                 <View style={{ gap: spacing.xs }}>
                     <SeletorMes value={month} months={months} onChange={m => setMonth(m)} />
                     <TouchableOpacity style={[s.addBtn, { backgroundColor: accent }]} onPress={() => { setEditing(null); setModalVisible(true); }}>
-                        <Text style={s.addBtnText}>+ Adicionar</Text>
+                        <Text style={s.addBtnText}>+ Adicionar {label}</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -200,14 +221,17 @@ export function TransacoesScreen({ type }: Props) {
                             <View style={[s.txDot, { backgroundColor: accent }]} />
                             <View style={s.txInfo}>
                                 <Text style={s.txDesc} numberOfLines={1}>{t.description}</Text>
-                                <Text style={s.txMeta}>{fmtDate(t.date)} · {t.category}</Text>
+                                <View style={s.txMetaRow}>
+                                    <Text style={s.txMeta}>{fmtDate(t.date)}</Text>
+                                    <View style={s.catBadge}><Text style={s.catBadgeText}>{t.category}</Text></View>
+                                </View>
                             </View>
                             <Text style={[s.txAmt, { color: accent }]}>{fmt(t.amount)}</Text>
                             <TouchableOpacity style={s.iconBtn} onPress={() => { setEditing(t); setModalVisible(true); }}>
-                                <Text style={s.iconBtnText}>✏</Text>
+                                <IconEdit color={colors.textSecondary} size={17} />
                             </TouchableOpacity>
-                            <TouchableOpacity style={[s.iconBtn, s.iconBtnDanger]} onPress={() => deleteItem(t.id)}>
-                                <Text style={s.iconBtnText}>🗑</Text>
+                            <TouchableOpacity style={s.iconBtn} onPress={() => deleteItem(t.id)}>
+                                <IconTrash color={colors.expense} size={17} />
                             </TouchableOpacity>
                         </View>
                     )}
@@ -220,6 +244,7 @@ export function TransacoesScreen({ type }: Props) {
                 onSaved={() => { setModalVisible(false); load(month); }}
                 categories={categories}
                 initial={editing}
+                type={type}
             />
         </View>
     );
@@ -227,9 +252,12 @@ export function TransacoesScreen({ type }: Props) {
 
 const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: colors.bg },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: spacing.lg, paddingBottom: spacing.sm },
+    header: { flexDirection: 'row', alignItems: 'flex-start', padding: spacing.lg, paddingBottom: spacing.sm, gap: spacing.sm },
+    hamburger: { paddingTop: 2 },
+    headerInfo: { flex: 1, alignItems: 'flex-start' },
     headerTitle: { color: colors.textPrimary, fontSize: fontSize.xl, fontWeight: fontWeight.bold },
-    headerTotal: { fontSize: fontSize.lg, fontWeight: fontWeight.semibold, marginTop: 2 },
+    summaryPill: { alignSelf: 'flex-start', borderRadius: radius.full, paddingHorizontal: 12, paddingVertical: 4, marginTop: 4, alignItems: 'flex-start' },
+    summaryPillText: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold },
     addBtn: { borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.xs + 2, alignItems: 'center' },
     addBtnText: { color: '#fff', fontWeight: fontWeight.semibold, fontSize: fontSize.sm },
     searchWrap: { flexDirection: 'row', alignItems: 'center', marginHorizontal: spacing.md, backgroundColor: colors.card, borderRadius: radius.md, paddingHorizontal: spacing.md, marginBottom: 4 },
@@ -242,10 +270,11 @@ const s = StyleSheet.create({
     txInfo: { flex: 1 },
     txDesc: { color: colors.textPrimary, fontSize: fontSize.sm, fontWeight: fontWeight.medium },
     txMeta: { color: colors.textMuted, fontSize: fontSize.xs, marginTop: 2 },
+    txMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
+    catBadge: { backgroundColor: colors.card, borderRadius: radius.sm, paddingHorizontal: 6, paddingVertical: 1 },
+    catBadgeText: { color: colors.textSecondary, fontSize: 10, fontWeight: fontWeight.medium },
     txAmt: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, marginRight: spacing.sm },
-    iconBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: radius.sm, backgroundColor: colors.card, marginLeft: 4 },
-    iconBtnDanger: { backgroundColor: 'rgba(239,68,68,0.15)' },
-    iconBtnText: { fontSize: 13 },
+    iconBtn: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: radius.sm, marginLeft: 2 },
     // Modal
     backdrop: { flex: 1, backgroundColor: colors.overlay },
     sheet: { backgroundColor: colors.card, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.lg, maxHeight: '80%' },
@@ -253,9 +282,10 @@ const s = StyleSheet.create({
     label: { color: colors.textSecondary, fontSize: fontSize.sm, fontWeight: fontWeight.medium, marginBottom: 4 },
     input: { backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, color: colors.textPrimary, fontSize: fontSize.base, marginBottom: spacing.md },
     chip: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg },
-    chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+    chipActive: { borderColor: colors.primary },
     chipText: { color: colors.textSecondary, fontSize: fontSize.sm },
     chipTextActive: { color: '#fff', fontWeight: fontWeight.semibold },
+    formRow: { flexDirection: 'row', gap: spacing.sm },
     row: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
     btnGhost: { flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingVertical: spacing.md, alignItems: 'center' },
     btnGhostText: { color: colors.textSecondary, fontWeight: fontWeight.medium },

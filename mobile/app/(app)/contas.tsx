@@ -5,7 +5,9 @@ import {
 } from 'react-native';
 import { api } from '@/services/api';
 import { useToast } from '@/contexts/ToastContext';
+import { useSidebar } from '@/contexts/SidebarContext';
 import { SeletorMes } from '@/components/SeletorMes';
+import { IconMenu } from '@/components/Icon';
 import { currentMonth, fmt, fmtMonth } from '@/utils/format';
 import { colors, fontSize, fontWeight, radius, spacing } from '@/constants/theme';
 
@@ -99,6 +101,7 @@ function BillModal({
 
 export default function ContasPage() {
     const toast = useToast();
+    const { open: openSidebar } = useSidebar();
     const [month, setMonth] = useState(currentMonth());
     const [months, setMonths] = useState<string[]>([]);
     const [bills, setBills] = useState<Bill[]>([]);
@@ -172,7 +175,10 @@ export default function ContasPage() {
     return (
         <View style={s.root}>
             <View style={s.header}>
-                <View>
+                <TouchableOpacity onPress={openSidebar} style={s.hamburger} hitSlop={8}>
+                    <IconMenu color={colors.textPrimary} size={22} />
+                </TouchableOpacity>
+                <View style={s.headerInfo}>
                     <Text style={s.headerTitle}>Contas Fixas</Text>
                     <Text style={s.headerSub}>Ativas: {fmt(totalActive)}/mês · Pago: {fmt(totalPaid)}</Text>
                 </View>
@@ -248,7 +254,9 @@ export default function ContasPage() {
 
 const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: colors.bg },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: spacing.lg, paddingBottom: spacing.sm },
+    header: { flexDirection: 'row', alignItems: 'flex-start', padding: spacing.lg, paddingBottom: spacing.sm, gap: spacing.sm },
+    hamburger: { paddingTop: 2 },
+    headerInfo: { flex: 1 },
     headerTitle: { color: colors.textPrimary, fontSize: fontSize.xl, fontWeight: fontWeight.bold },
     headerSub: { color: colors.textMuted, fontSize: fontSize.xs, marginTop: 2 },
     addBtn: { borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.xs + 2, backgroundColor: colors.primary, alignItems: 'center' },

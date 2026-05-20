@@ -1,10 +1,17 @@
+import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { colors, fontSize, fontWeight, radius, spacing } from '@/constants/theme';
+import {
+    IconTrendingUp, IconTarget, IconLightbulb,
+    IconActivity, IconBarChart, IconMessageCircle,
+} from '@/components/Icon';
+
+type IconComponent = React.ComponentType<{ color?: string; size?: number }>;
 
 interface MenuItem {
-    icon: string;
+    Icon: IconComponent;
     title: string;
     subtitle: string;
     route: string;
@@ -12,12 +19,12 @@ interface MenuItem {
 }
 
 const ITEMS: MenuItem[] = [
-    { icon: '📈', title: 'Investimentos', subtitle: 'Carteira, aportes e cotações', route: '/(app)/investimentos' },
-    { icon: '🎯', title: 'Metas', subtitle: 'Planejamento e progresso', route: '/(app)/metas' },
-    { icon: '💡', title: 'Inteligência', subtitle: 'Projeção de saldo e análise de gastos', route: '/(app)/insights' },
-    { icon: '❤️', title: 'Saúde Financeira', subtitle: 'Regra 50-30-20 e pontuação', route: '/(app)/saude', premium: true },
-    { icon: '📊', title: 'Relatórios', subtitle: 'Resumo completo e comparações', route: '/(app)/relatorios' },
-    { icon: '🤖', title: 'Assistente', subtitle: 'Dúvidas e perguntas frequentes', route: '/(app)/chatbot' },
+    { Icon: IconTrendingUp, title: 'Investimentos', subtitle: 'Carteira, aportes e cotações', route: '/(app)/investimentos' },
+    { Icon: IconTarget, title: 'Metas', subtitle: 'Planejamento e progresso', route: '/(app)/metas' },
+    { Icon: IconLightbulb, title: 'Inteligência', subtitle: 'Projeção de saldo e análise de gastos', route: '/(app)/insights' },
+    { Icon: IconActivity, title: 'Saúde Financeira', subtitle: 'Regra 50-30-20 e pontuação', route: '/(app)/saude', premium: true },
+    { Icon: IconBarChart, title: 'Relatórios', subtitle: 'Resumo completo e comparações', route: '/(app)/relatorios' },
+    { Icon: IconMessageCircle, title: 'Assistente', subtitle: 'Dúvidas e perguntas frequentes', route: '/(app)/chatbot' },
 ];
 
 export default function MaisScreen() {
@@ -28,7 +35,7 @@ export default function MaisScreen() {
         <ScrollView style={s.root} contentContainerStyle={{ padding: spacing.lg, paddingBottom: 100 }}>
             {/* Perfil rápido */}
             <View style={s.profileCard}>
-                <View style={s.avatar}><Text style={s.avatarText}>{(user?.name ?? 'U')[0].toUpperCase()}</Text></View>
+                <View style={s.avatar}><Text style={s.avatarText}>{user?.name?.split(' ')[0]}</Text></View>
                 <View style={{ flex: 1 }}>
                     <Text style={s.profileName} numberOfLines={1}>{user?.name ?? '—'}</Text>
                     <Text style={s.profileEmail} numberOfLines={1}>{user?.email ?? '—'}</Text>
@@ -42,6 +49,7 @@ export default function MaisScreen() {
             <Text style={s.sectionTitle}>Funcionalidades</Text>
             {ITEMS.map(item => {
                 const locked = item.premium && !isPremium;
+                const iconColor = locked ? colors.textMuted : colors.primary;
                 return (
                     <TouchableOpacity
                         key={item.route}
@@ -49,9 +57,13 @@ export default function MaisScreen() {
                         onPress={() => { if (!locked) router.push(item.route as any); }}
                         activeOpacity={locked ? 1 : 0.7}
                     >
-                        <Text style={s.menuIcon}>{item.icon}</Text>
+                        <View style={s.iconWrap}>
+                            <item.Icon color={iconColor} size={22} />
+                        </View>
                         <View style={{ flex: 1 }}>
-                            <Text style={[s.menuTitle, locked && s.menuTitleLocked]}>{item.title}{locked ? ' 🔒' : ''}</Text>
+                            <Text style={[s.menuTitle, locked && s.menuTitleLocked]}>
+                                {item.title}{locked ? ' 🔒' : ''}
+                            </Text>
                             <Text style={s.menuSub}>{item.subtitle}</Text>
                         </View>
                         {!locked && <Text style={s.chevron}>›</Text>}
@@ -82,7 +94,7 @@ const s = StyleSheet.create({
     sectionTitle: { color: colors.textMuted, fontSize: fontSize.xs, fontWeight: fontWeight.semibold, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: spacing.sm, marginTop: spacing.xs },
     menuItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.sm, gap: spacing.md },
     menuItemLocked: { opacity: 0.5 },
-    menuIcon: { fontSize: 24, width: 36, textAlign: 'center' },
+    iconWrap: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
     menuTitle: { color: colors.textPrimary, fontWeight: fontWeight.semibold, fontSize: fontSize.base },
     menuTitleLocked: { color: colors.textMuted },
     menuSub: { color: colors.textMuted, fontSize: fontSize.xs, marginTop: 2 },

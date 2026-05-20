@@ -4,7 +4,9 @@ import {
 } from 'react-native';
 import { api } from '@/services/api';
 import { useToast } from '@/contexts/ToastContext';
+import { useSidebar } from '@/contexts/SidebarContext';
 import { SeletorMes } from '@/components/SeletorMes';
+import { IconMenu } from '@/components/Icon';
 import { currentMonth, fmt, fmtMonth } from '@/utils/format';
 import { colors, fontSize, fontWeight, radius, spacing } from '@/constants/theme';
 
@@ -30,6 +32,7 @@ interface InsightData {
 
 export default function InsightsPage() {
     const toast = useToast();
+    const { open: openSidebar } = useSidebar();
     const [month, setMonth] = useState(currentMonth());
     const [months, setMonths] = useState<string[]>([]);
     const [data, setData] = useState<InsightData | null>(null);
@@ -70,6 +73,9 @@ export default function InsightsPage() {
         >
             {/* Header */}
             <View style={s.headerRow}>
+                <TouchableOpacity onPress={openSidebar} style={s.hamburger} hitSlop={8}>
+                    <IconMenu color={colors.textPrimary} size={22} />
+                </TouchableOpacity>
                 <Text style={s.title}>Inteligência</Text>
                 <SeletorMes value={month} months={months} onChange={m => setMonth(m)} />
             </View>
@@ -164,8 +170,9 @@ export default function InsightsPage() {
 
 const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: colors.bg },
-    headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },
-    title: { color: colors.textPrimary, fontSize: fontSize.xl, fontWeight: fontWeight.bold },
+    headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md, gap: spacing.sm },
+    hamburger: { padding: 2 },
+    title: { flex: 1, color: colors.textPrimary, fontSize: fontSize.xl, fontWeight: fontWeight.bold },
     section: { backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md },
     sectionTitle: { color: colors.textPrimary, fontWeight: fontWeight.semibold, fontSize: fontSize.base, marginBottom: spacing.sm },
     alert: { borderRadius: radius.md, padding: spacing.sm, marginBottom: spacing.sm },

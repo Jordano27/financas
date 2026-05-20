@@ -19,6 +19,7 @@ interface AuthContextValue {
     isLoading: boolean;
     signIn: (email: string, password: string) => Promise<{ role: string }>;
     signOut: () => Promise<void>;
+    updateUserState: (partial: Partial<Pick<UserPayload, 'name'>>) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -119,8 +120,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         router.replace('/login');
     }, []);
 
+    // ── updateUserState ───────────────────────────────────────────────────────
+    const updateUserState = useCallback((partial: Partial<Pick<UserPayload, 'name'>>) => {
+        setUser(prev => prev ? { ...prev, ...partial } : prev);
+    }, []);
+
     return (
-        <AuthContext.Provider value={{ user, isLoading, signIn, signOut }}>
+        <AuthContext.Provider value={{ user, isLoading, signIn, signOut, updateUserState }}>
             {children}
         </AuthContext.Provider>
     );

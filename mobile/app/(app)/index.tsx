@@ -1,13 +1,15 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text,
-    View, useWindowDimensions,
+    TouchableOpacity, View, useWindowDimensions,
 } from 'react-native';
 import { SimpleBarChart, SimplePieChart } from '@/components/Charts';
 import { api } from '@/services/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
+import { useSidebar } from '@/contexts/SidebarContext';
 import { SeletorMes } from '@/components/SeletorMes';
+import { IconMenu } from '@/components/Icon';
 import { currentMonth, deltaLabel, fmt, fmtDate, fmtMonth, prevMonth } from '@/utils/format';
 import { colors, fontSize, fontWeight, radius, shadow, spacing } from '@/constants/theme';
 
@@ -45,6 +47,7 @@ const PIE_COLORS = ['#818cf8', '#34d399', '#f87171', '#fbbf24', '#38bdf8', '#a78
 export default function DashboardScreen() {
     const { user } = useAuth();
     const toast = useToast();
+    const { open: openSidebar } = useSidebar();
     const { width } = useWindowDimensions();
 
     const [month, setMonth] = useState(currentMonth());
@@ -107,6 +110,10 @@ export default function DashboardScreen() {
         const { totalIncome, totalExpense, totalBills, totalOutflow, totalInvested, balance, savingsRate, health, bills } = stats;
         const prevInvested = prevStats?.totalInvested ?? 0;
         const investDelta = (totalInvested ?? 0) - prevInvested;
+        const investDeltaSign = investDelta > 0 ? '+' : '';
+        const investPctLabel = prevInvested > 0
+            ? ` (${investDeltaSign}${((investDelta / prevInvested) * 100).toFixed(1)}%)`
+            : '';
 
         const now = new Date();
         const currentYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -129,6 +136,7 @@ export default function DashboardScreen() {
             { label: 'Total de Saídas', value: fmt(totalOutflow + (totalInvested ?? 0)), sub: `${fmt(totalExpense)} gastos · ${fmt(totalBills)} contas · ${fmt(totalInvested ?? 0)} invest.`, accent: colors.expense },
             { label: 'Saldo', value: fmt(balance), sub: `${(savingsRate ?? 0).toFixed(1)}% poupado · ${fmt(totalInvested ?? 0)} investido`, accent: balance >= 0 ? colors.income : colors.expense },
             { label: 'Investido no mês', value: fmt(totalInvested ?? 0), sub: deltaLabel(investDelta) + (prevInvested ? ` vs mês ant.` : ''), accent: colors.invest },
+            { label: 'Variação de Investimentos', value: `${investDeltaSign}${fmt(investDelta)}${investPctLabel}`, sub: prevInvested === 0 ? 'Sem invest. no mês anterior' : `Mês ant.: ${fmt(prevInvested)}`, accent: investDelta >= 0 ? colors.income : colors.expense },
             { label: 'Inadimplência', value: `${unpaidPct}%`, sub: overdue.length === 0 ? 'Nenhuma conta vencida ✓' : `${overdue.length} de ${totalBillCount} contas`, accent: overdue.length === 0 ? colors.success : Number(unpaidPct) >= 50 ? colors.danger : colors.bills },
             { label: 'Adimplência', value: `${paidPct}%`, sub: paid.length === 0 ? 'Nenhuma conta paga ainda' : `${paid.length} de ${totalBillCount} contas pagas`, accent: Number(paidPct) === 100 ? colors.success : Number(paidPct) >= 50 ? colors.bills : colors.danger },
             ...(isPremium ? [{ label: 'Saúde Financeira', value: `${health.score}/100`, sub: health.label, accent: healthColor }] : []),
@@ -150,7 +158,11 @@ export default function DashboardScreen() {
         });
         return {
             labels,
-            values: histStats.map(s => s?.totalIncome ?? 0),
+            datasets: [
+                { label: 'Ganhos', values: histStats.map(s => s?.totalIncome ?? 0), color: 'rgba(52,211,153,0.85)' },
+                { label: 'Saídas', values: histStats.map(s => s?.totalOutflow ?? 0), color: 'rgba(248,113,113,0.85)' },
+                { label: 'Investido', values: histStats.map(s => s?.totalInvested ?? 0), color: 'rgba(56,189,248,0.85)' },
+            ],
         };
     }
 
@@ -196,9 +208,13 @@ export default function DashboardScreen() {
         >
             {/* Header */}
             <View style={styles.header}>
-                <View>
-                    <Text style={styles.greeting}>Olá, {user?.name?.split(' ')[0]} 👋</Text>
-                    <Text style={styles.subtitle}>{isPremium ? '⭐ Premium' : 'Plano Free'}</Text>
+                <View style={styles.headerLeft}>
+                    <TouchableOpacity onPress={openSidebar} style={styles.hamburger} hitSlop={8}>
+                        <IconMenu color={colors.textPrimary} size={22} />
+                    </TouchableOpacity>
+                    <View>
+                        <Text style={styles.greeting}>Olá, {user?.name?.split(' ')[0]}</Text>
+                    </View>
                 </View>
                 <SeletorMes value={month} months={months} onChange={m => setMonth(m)} />
             </View>
@@ -214,13 +230,12 @@ export default function DashboardScreen() {
 
                     {/* Gráfico de barras — histórico */}
                     <View style={[styles.card, { marginTop: spacing.md }]}>
-                        <Text style={styles.cardTitle}>Histórico de ganhos — últimos 6 meses</Text>
+                        <Text style={styles.cardTitle}>Histórico — últimos 6 meses</Text>
                         <SimpleBarChart
                             labels={barData.labels}
-                            values={barData.values}
+                            datasets={barData.datasets}
                             width={chartWidth}
-                            height={160}
-                            barColor={colors.income}
+                            height={180}
                         />
                     </View>
 
@@ -269,6 +284,8 @@ const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: colors.bg },
     content: { padding: spacing.lg, paddingBottom: spacing.xxl },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg },
+    headerLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+    hamburger: { padding: 2 },
     greeting: { color: colors.textPrimary, fontSize: fontSize.xl, fontWeight: fontWeight.bold },
     subtitle: { color: colors.textMuted, fontSize: fontSize.sm, marginTop: 2 },
     cardsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },

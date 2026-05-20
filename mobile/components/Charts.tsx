@@ -6,63 +6,98 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Rect, G, Text as SvgText, Circle, Path } from 'react-native-svg';
 import { colors, fontSize, fontWeight, spacing } from '@/constants/theme';
-import { fmt } from '@/utils/format';
 
 // ─────────────── Bar Chart ──────────────────────────────────────────────────
 
-interface BarChartProps {
-    labels: string[];
+interface BarDataset {
+    label: string;
     values: number[];
-    width: number;
-    height?: number;
-    barColor?: string;
+    color: string;
 }
 
-export function SimpleBarChart({ labels, values, width, height = 160, barColor = colors.income }: BarChartProps) {
-    const paddingLeft = 48;
+interface BarChartProps {
+    labels: string[];
+    datasets: BarDataset[];
+    width: number;
+    height?: number;
+}
+
+export function SimpleBarChart({ labels, datasets, width, height = 180 }: BarChartProps) {
+    const paddingLeft = 52;
     const paddingRight = 12;
     const paddingTop = 16;
-    const paddingBottom = 36;
+    const paddingBottom = 28;
     const chartW = width - paddingLeft - paddingRight;
     const chartH = height - paddingTop - paddingBottom;
 
-    const max = Math.max(...values, 1);
-    const barW = Math.max(4, (chartW / values.length) * 0.55);
-    const gap = chartW / values.length;
+    const numGroups = labels.length;
+    const numDs = datasets.length;
+    const allValues = datasets.flatMap(d => d.values);
+    const max = Math.max(...allValues, 1);
 
-    // Linhas horizontais (4)
-    const lines = [0, 0.25, 0.5, 0.75, 1].map(pct => ({
-        y: paddingTop + chartH * (1 - pct),
-        label: fmt(max * pct),
-    }));
+    const groupW = chartW / numGroups;
+    const barGap = 2;
+    const barW = Math.max(4, (groupW * 0.78 - barGap * (numDs - 1)) / numDs);
+
+    const ticks = [0, 0.25, 0.5, 0.75, 1];
 
     return (
-        <Svg width={width} height={height}>
-            {/* Grid lines */}
-            {lines.map((l, i) => (
-                <G key={i}>
-                    <Rect x={paddingLeft} y={l.y} width={chartW} height={0.5} fill="rgba(255,255,255,0.06)" />
-                    <SvgText x={paddingLeft - 4} y={l.y + 4} fontSize={9} fill={colors.textMuted} textAnchor="end">
-                        {i === 0 ? '' : `${Math.round(max * [0, 0.25, 0.5, 0.75, 1][i] / 1000)}k`}
-                    </SvgText>
-                </G>
-            ))}
+        <View>
+            <Svg width={width} height={height}>
+                {/* Grid lines + Y labels */}
+                {ticks.map((pct, i) => {
+                    const y = paddingTop + chartH * (1 - pct);
+                    return (
+                        <G key={i}>
+                            <Rect x={paddingLeft} y={y} width={chartW} height={0.5} fill="rgba(255,255,255,0.06)" />
+                            <SvgText x={paddingLeft - 4} y={y + 4} fontSize={9} fill={colors.textMuted} textAnchor="end">
+                                {pct === 0 ? '' : `${Math.round(max * pct / 1000)}k`}
+                            </SvgText>
+                        </G>
+                    );
+                })}
 
-            {/* Bars */}
-            {values.map((v, i) => {
-                const barH = Math.max(2, (v / max) * chartH);
-                const x = paddingLeft + gap * i + gap / 2 - barW / 2;
-                const y = paddingTop + chartH - barH;
-                return (
-                    <G key={i}>
-                        <Rect x={x} y={y} width={barW} height={barH} fill={barColor} rx={3} ry={3} opacity={0.85} />
-                        <SvgText x={x + barW / 2} y={height - paddingBottom + 14} fontSize={10} fill={colors.textMuted} textAnchor="middle">
-                            {labels[i] ?? ''}
-                        </SvgText>
-                    </G>
-                );
-            })}
-        </Svg>
+                {/* Grouped bars */}
+                {labels.map((lbl, gi) => {
+                    const groupCenterX = paddingLeft + groupW * gi + groupW / 2;
+                    const totalBarsW = barW * numDs + barGap * (numDs - 1);
+                    const startX = groupCenterX - totalBarsW / 2;
+                    return (
+                        <G key={gi}>
+                            {datasets.map((ds, di) => {
+                                const v = ds.values[gi] ?? 0;
+                                const barH = Math.max(v > 0 ? 2 : 0, (v / max) * chartH);
+                                const bx = startX + di * (barW + barGap);
+                                const by = paddingTop + chartH - barH;
+                                return (
+                                    <Rect key={di} x={bx} y={by} width={barW} height={barH}
+                                        fill={ds.color} rx={2} ry={2} opacity={0.85} />
+                                );
+                            })}
+                            <SvgText
+                                x={groupCenterX}
+                                y={paddingTop + chartH + 14}
+                                fontSize={10}
+                                fill={colors.textMuted}
+                                textAnchor="middle"
+                            >
+                                {lbl}
+                            </SvgText>
+                        </G>
+                    );
+                })}
+            </Svg>
+
+            {/* Legend */}
+            <View style={s.barLegend}>
+                {datasets.map((ds, i) => (
+                    <View key={i} style={s.barLegendItem}>
+                        <View style={[s.barLegendDot, { backgroundColor: ds.color }]} />
+                        <Text style={s.barLegendText}>{ds.label}</Text>
+                    </View>
+                ))}
+            </View>
+        </View>
     );
 }
 
@@ -139,4 +174,8 @@ const s = StyleSheet.create({
     legendDot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
     legendName: { flex: 1, color: colors.textSecondary, fontSize: fontSize.xs },
     legendVal: { color: colors.textMuted, fontSize: fontSize.xs, fontWeight: fontWeight.medium },
+    barLegend: { flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', gap: spacing.md, marginTop: 2 },
+    barLegendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    barLegendDot: { width: 10, height: 10, borderRadius: 2 },
+    barLegendText: { color: colors.textMuted, fontSize: 10 },
 });

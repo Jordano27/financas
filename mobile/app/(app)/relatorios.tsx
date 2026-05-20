@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-    ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View,
+    ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
 import { api } from '@/services/api';
 import { useToast } from '@/contexts/ToastContext';
+import { useSidebar } from '@/contexts/SidebarContext';
 import { SeletorMes } from '@/components/SeletorMes';
+import { IconMenu } from '@/components/Icon';
 import { currentMonth, fmt, fmtMonth } from '@/utils/format';
 import { colors, fontSize, fontWeight, radius, spacing } from '@/constants/theme';
 
@@ -60,6 +62,7 @@ function CmpRow({ label, cur, prev }: { label: string; cur: number; prev: number
 
 export default function RelatoriosPage() {
     const toast = useToast();
+    const { open: openSidebar } = useSidebar();
     const [month, setMonth] = useState(currentMonth());
     const [months, setMonths] = useState<string[]>([]);
     const [data, setData] = useState<ReportData | null>(null);
@@ -116,6 +119,9 @@ export default function RelatoriosPage() {
         >
             {/* Header */}
             <View style={s.headerRow}>
+                <TouchableOpacity onPress={openSidebar} style={s.hamburger} hitSlop={8}>
+                    <IconMenu color={colors.textPrimary} size={22} />
+                </TouchableOpacity>
                 <Text style={s.title}>Relatórios</Text>
                 <SeletorMes value={month} months={months} onChange={m => setMonth(m)} />
             </View>
@@ -214,8 +220,9 @@ export default function RelatoriosPage() {
 
 const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: colors.bg },
-    headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },
-    title: { color: colors.textPrimary, fontSize: fontSize.xl, fontWeight: fontWeight.bold },
+    headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md, gap: spacing.sm },
+    hamburger: { padding: 2 },
+    title: { flex: 1, color: colors.textPrimary, fontSize: fontSize.xl, fontWeight: fontWeight.bold },
     empty: { color: colors.textMuted, textAlign: 'center', marginTop: 48, fontSize: fontSize.sm },
     healthCard: { backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.md, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md, borderLeftWidth: 4 },
     healthLabel: { color: colors.textPrimary, fontWeight: fontWeight.semibold, fontSize: fontSize.base },
