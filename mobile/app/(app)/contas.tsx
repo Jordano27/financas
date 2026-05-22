@@ -174,25 +174,30 @@ export default function ContasPage() {
 
     return (
         <View style={s.root}>
-            <View style={s.header}>
-                <TouchableOpacity onPress={openSidebar} style={s.hamburger} hitSlop={8}>
-                    <IconMenu color={colors.textPrimary} size={22} />
-                </TouchableOpacity>
-                <View style={s.headerInfo}>
+            {/* Header fixo: 3 linhas */}
+            <View style={s.stickyHeader}>
+                {/* Linha 1: Hambúrguer + Título + SeletorMes */}
+                <View style={s.hRow1}>
+                    <TouchableOpacity onPress={openSidebar} style={s.hamburger} hitSlop={8}>
+                        <IconMenu color={colors.textPrimary} size={22} />
+                    </TouchableOpacity>
                     <Text style={s.headerTitle}>Contas Fixas</Text>
-                    <Text style={s.headerSub}>Ativas: {fmt(totalActive)}/mês · Pago: {fmt(totalPaid)}</Text>
-                </View>
-                <View style={{ gap: spacing.xs }}>
                     <SeletorMes value={month} months={months} onChange={m => setMonth(m)} />
+                </View>
+                {/* Linha 2: Totais + Botão Adicionar */}
+                <View style={s.hRow2}>
+                    <Text style={s.headerSub}>Ativas: {fmt(totalActive)}/mês · Pago: {fmt(totalPaid)}</Text>
                     <TouchableOpacity style={s.addBtn} onPress={() => { setEditing(null); setModalVisible(true); }}>
                         <Text style={s.addBtnText}>+ Adicionar</Text>
                     </TouchableOpacity>
                 </View>
-            </View>
-
-            <View style={s.searchWrap}>
-                <TextInput style={s.search} value={query} onChangeText={setQuery} placeholder="Buscar…" placeholderTextColor={colors.textMuted} />
-                {!!query && <TouchableOpacity onPress={() => setQuery('')}><Text style={s.searchClear}>✕</Text></TouchableOpacity>}
+                {/* Linha 3: Barra de Busca */}
+                <View style={s.hRow3}>
+                    <View style={s.searchWrap}>
+                        <TextInput style={s.search} value={query} onChangeText={setQuery} placeholder="Buscar…" placeholderTextColor={colors.textMuted} />
+                        {!!query && <TouchableOpacity onPress={() => setQuery('')}><Text style={s.searchClear}>✕</Text></TouchableOpacity>}
+                    </View>
+                </View>
             </View>
 
             {loading ? <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} /> : (
@@ -254,14 +259,16 @@ export default function ContasPage() {
 
 const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: colors.bg },
-    header: { flexDirection: 'row', alignItems: 'flex-start', padding: spacing.lg, paddingBottom: spacing.sm, gap: spacing.sm },
-    hamburger: { paddingTop: 2 },
-    headerInfo: { flex: 1 },
-    headerTitle: { color: colors.textPrimary, fontSize: fontSize.xl, fontWeight: fontWeight.bold },
-    headerSub: { color: colors.textMuted, fontSize: fontSize.xs, marginTop: 2 },
-    addBtn: { borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.xs + 2, backgroundColor: colors.primary, alignItems: 'center' },
-    addBtnText: { color: '#fff', fontWeight: fontWeight.semibold, fontSize: fontSize.sm },
-    searchWrap: { flexDirection: 'row', alignItems: 'center', marginHorizontal: spacing.md, backgroundColor: colors.card, borderRadius: radius.md, paddingHorizontal: spacing.md, marginBottom: spacing.sm },
+    stickyHeader: { backgroundColor: colors.bg, borderBottomWidth: 1, borderBottomColor: colors.border },
+    hRow1: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.xs, gap: spacing.sm },
+    hRow2: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingVertical: spacing.xs, gap: spacing.sm },
+    hRow3: { paddingHorizontal: spacing.md, paddingTop: spacing.xs, paddingBottom: spacing.sm },
+    hamburger: { padding: 2 },
+    headerTitle: { flex: 1, color: colors.textPrimary, fontSize: fontSize.xl, fontWeight: fontWeight.bold },
+    headerSub: { flex: 1, color: colors.textMuted, fontSize: fontSize.xs },
+    addBtn: { borderRadius: radius.full, paddingHorizontal: 12, paddingVertical: 4, backgroundColor: 'rgba(59,130,246,0.15)', alignItems: 'center' },
+    addBtnText: { color: colors.primary, fontWeight: fontWeight.semibold, fontSize: fontSize.xs },
+    searchWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderRadius: radius.md, paddingHorizontal: spacing.md },
     search: { flex: 1, color: colors.textPrimary, fontSize: fontSize.sm, paddingVertical: spacing.sm },
     searchClear: { color: colors.textMuted, fontSize: fontSize.base, paddingLeft: spacing.sm },
     empty: { color: colors.textMuted, textAlign: 'center', marginTop: 48, fontSize: fontSize.sm },

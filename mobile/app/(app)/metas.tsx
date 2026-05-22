@@ -5,8 +5,10 @@ import {
 } from 'react-native';
 import { api } from '@/services/api';
 import { useToast } from '@/contexts/ToastContext';
+import { useSidebar } from '@/contexts/SidebarContext';
 import { fmt, todayISO } from '@/utils/format';
 import { colors, fontSize, fontWeight, radius, spacing } from '@/constants/theme';
+import { IconMenu } from '@/components/Icon';
 
 interface Contribution { id: string; amount: number; date: string; note?: string; }
 
@@ -241,6 +243,7 @@ function ContribsHistoryModal({ visible, onClose, onDeleted, goal }: {
 // ─────────────── Tela Principal ──────────────────────────────────────────────
 export default function MetasPage() {
     const toast = useToast();
+    const { open: openSidebar } = useSidebar();
     const [goals, setGoals] = useState<Goal[]>([]);
     const [query, setQuery] = useState('');
     const [loading, setLoading] = useState(true);
@@ -282,19 +285,29 @@ export default function MetasPage() {
 
     return (
         <View style={s.root}>
-            <View style={s.header}>
-                <View>
+            {/* Header fixo: 3 linhas */}
+            <View style={s.stickyHeader}>
+                {/* Linha 1: Hambúrguer + Título */}
+                <View style={s.hRow1}>
+                    <TouchableOpacity onPress={openSidebar} style={s.hamburger} hitSlop={8}>
+                        <IconMenu color={colors.textPrimary} size={22} />
+                    </TouchableOpacity>
                     <Text style={s.headerTitle}>Metas</Text>
-                    <Text style={s.headerSub}>{total > 0 ? `${total} meta${total !== 1 ? 's' : ''} · ${done} concluída${done !== 1 ? 's' : ''}` : '0 metas'}</Text>
                 </View>
-                <TouchableOpacity style={s.addBtn} onPress={() => { setEditing(null); setGoalModal(true); }}>
-                    <Text style={s.addBtnText}>+ Nova Meta</Text>
-                </TouchableOpacity>
-            </View>
-
-            <View style={s.searchWrap}>
-                <TextInput style={s.search} value={query} onChangeText={setQuery} placeholder="Buscar…" placeholderTextColor={colors.textMuted} />
-                {!!query && <TouchableOpacity onPress={() => setQuery('')}><Text style={s.searchClear}>✕</Text></TouchableOpacity>}
+                {/* Linha 2: Contagem + Botão Nova Meta */}
+                <View style={s.hRow2}>
+                    <Text style={s.headerSub}>{total > 0 ? `${total} meta${total !== 1 ? 's' : ''} · ${done} concluída${done !== 1 ? 's' : ''}` : '0 metas'}</Text>
+                    <TouchableOpacity style={s.addBtn} onPress={() => { setEditing(null); setGoalModal(true); }}>
+                        <Text style={s.addBtnText}>+ Nova Meta</Text>
+                    </TouchableOpacity>
+                </View>
+                {/* Linha 3: Barra de Busca */}
+                <View style={s.hRow3}>
+                    <View style={s.searchWrap}>
+                        <TextInput style={s.search} value={query} onChangeText={setQuery} placeholder="Buscar…" placeholderTextColor={colors.textMuted} />
+                        {!!query && <TouchableOpacity onPress={() => setQuery('')}><Text style={s.searchClear}>✕</Text></TouchableOpacity>}
+                    </View>
+                </View>
             </View>
 
             {loading ? <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} /> : (
@@ -367,12 +380,16 @@ export default function MetasPage() {
 
 const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: colors.bg },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: spacing.lg, paddingBottom: spacing.sm },
-    headerTitle: { color: colors.textPrimary, fontSize: fontSize.xl, fontWeight: fontWeight.bold },
-    headerSub: { color: colors.textMuted, fontSize: fontSize.xs, marginTop: 2 },
-    addBtn: { borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.xs + 2, backgroundColor: colors.primary, alignItems: 'center' },
-    addBtnText: { color: '#fff', fontWeight: fontWeight.semibold, fontSize: fontSize.sm },
-    searchWrap: { flexDirection: 'row', alignItems: 'center', marginHorizontal: spacing.md, backgroundColor: colors.card, borderRadius: radius.md, paddingHorizontal: spacing.md, marginBottom: spacing.sm },
+    stickyHeader: { backgroundColor: colors.bg, borderBottomWidth: 1, borderBottomColor: colors.border },
+    hRow1: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.xs, gap: spacing.sm },
+    hRow2: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingVertical: spacing.xs, gap: spacing.sm },
+    hRow3: { paddingHorizontal: spacing.md, paddingTop: spacing.xs, paddingBottom: spacing.sm },
+    hamburger: { padding: 2 },
+    headerTitle: { flex: 1, color: colors.textPrimary, fontSize: fontSize.xl, fontWeight: fontWeight.bold },
+    headerSub: { flex: 1, color: colors.textMuted, fontSize: fontSize.xs },
+    addBtn: { borderRadius: radius.full, paddingHorizontal: 12, paddingVertical: 4, backgroundColor: 'rgba(59,130,246,0.15)', alignItems: 'center' },
+    addBtnText: { color: colors.primary, fontWeight: fontWeight.semibold, fontSize: fontSize.xs },
+    searchWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderRadius: radius.md, paddingHorizontal: spacing.md },
     search: { flex: 1, color: colors.textPrimary, fontSize: fontSize.sm, paddingVertical: spacing.sm },
     searchClear: { color: colors.textMuted, fontSize: fontSize.base, paddingLeft: spacing.sm },
     empty: { color: colors.textMuted, textAlign: 'center', marginTop: 48, fontSize: fontSize.sm },

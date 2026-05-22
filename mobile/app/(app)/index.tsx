@@ -201,92 +201,91 @@ export default function DashboardScreen() {
     const barData = buildBarData();
 
     return (
-        <ScrollView
-            style={styles.root}
-            contentContainerStyle={styles.content}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-        >
-            {/* Header */}
-            <View style={styles.header}>
-                <View style={styles.headerLeft}>
+        <View style={styles.root}>
+            {/* Header fixo: Linha 1 */}
+            <View style={styles.stickyHeader}>
+                <View style={styles.hRow1}>
                     <TouchableOpacity onPress={openSidebar} style={styles.hamburger} hitSlop={8}>
                         <IconMenu color={colors.textPrimary} size={22} />
                     </TouchableOpacity>
-                    <View>
-                        <Text style={styles.greeting}>Olá, {user?.name?.split(' ')[0]}</Text>
-                    </View>
+                    <Text style={styles.greeting}>Olá, {user?.name?.split(' ')[0]}</Text>
+                    <SeletorMes value={month} months={months} onChange={m => setMonth(m)} />
                 </View>
-                <SeletorMes value={month} months={months} onChange={m => setMonth(m)} />
             </View>
+            <ScrollView
+                contentContainerStyle={styles.content}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+            >
 
-            {loading ? (
-                <ActivityIndicator color={colors.primary} style={{ marginTop: 60 }} />
-            ) : (
-                <>
-                    {/* Stat cards */}
-                    <View style={styles.cardsGrid}>
-                        {cards.map((c, i) => <StatCard key={i} {...c} />)}
-                    </View>
-
-                    {/* Gráfico de barras — histórico */}
-                    <View style={[styles.card, { marginTop: spacing.md }]}>
-                        <Text style={styles.cardTitle}>Histórico — últimos 6 meses</Text>
-                        <SimpleBarChart
-                            labels={barData.labels}
-                            datasets={barData.datasets}
-                            width={chartWidth}
-                            height={180}
-                        />
-                    </View>
-
-                    {/* Gráfico de pizza — categorias */}
-                    {pieData.length > 0 && (
-                        <View style={[styles.card, { marginTop: spacing.md }]}>
-                            <Text style={styles.cardTitle}>Gastos por categoria</Text>
-                            <SimplePieChart data={pieData} size={140} />
+                {loading ? (
+                    <ActivityIndicator color={colors.primary} style={{ marginTop: 60 }} />
+                ) : (
+                    <>
+                        {/* Stat cards */}
+                        <View style={styles.cardsGrid}>
+                            {cards.map((c, i) => <StatCard key={i} {...c} />)}
                         </View>
-                    )}
 
-                    {/* Lançamentos recentes */}
-                    <View style={[styles.card, { marginTop: spacing.md }]}>
-                        <Text style={styles.cardTitle}>Lançamentos recentes</Text>
-                        {recent.length === 0 ? (
-                            <Text style={styles.empty}>Nenhum lançamento neste mês</Text>
-                        ) : (
-                            recent.map(tx => {
-                                const isBill = tx.type === 'bill';
-                                const accentColor = tx.type === 'income' ? colors.income : isBill ? colors.bills : colors.expense;
-                                const sign = tx.type === 'income' ? '+' : '-';
-                                return (
-                                    <View key={tx.id} style={styles.txItem}>
-                                        <View style={[styles.txDot, { backgroundColor: accentColor }]} />
-                                        <View style={styles.txInfo}>
-                                            <Text style={styles.txDesc} numberOfLines={1}>{tx.description}</Text>
-                                            <Text style={styles.txMeta}>
-                                                {isBill ? 'Conta fixa' : fmtDate((tx as { date: string }).date)} · {tx.category}
+                        {/* Gráfico de barras — histórico */}
+                        <View style={[styles.card, { marginTop: spacing.md }]}>
+                            <Text style={styles.cardTitle}>Histórico — últimos 6 meses</Text>
+                            <SimpleBarChart
+                                labels={barData.labels}
+                                datasets={barData.datasets}
+                                width={chartWidth}
+                                height={180}
+                            />
+                        </View>
+
+                        {/* Gráfico de pizza — categorias */}
+                        {pieData.length > 0 && (
+                            <View style={[styles.card, { marginTop: spacing.md }]}>
+                                <Text style={styles.cardTitle}>Gastos por categoria</Text>
+                                <SimplePieChart data={pieData} size={140} />
+                            </View>
+                        )}
+
+                        {/* Lançamentos recentes */}
+                        <View style={[styles.card, { marginTop: spacing.md }]}>
+                            <Text style={styles.cardTitle}>Lançamentos recentes</Text>
+                            {recent.length === 0 ? (
+                                <Text style={styles.empty}>Nenhum lançamento neste mês</Text>
+                            ) : (
+                                recent.map(tx => {
+                                    const isBill = tx.type === 'bill';
+                                    const accentColor = tx.type === 'income' ? colors.income : isBill ? colors.bills : colors.expense;
+                                    const sign = tx.type === 'income' ? '+' : '-';
+                                    return (
+                                        <View key={tx.id} style={styles.txItem}>
+                                            <View style={[styles.txDot, { backgroundColor: accentColor }]} />
+                                            <View style={styles.txInfo}>
+                                                <Text style={styles.txDesc} numberOfLines={1}>{tx.description}</Text>
+                                                <Text style={styles.txMeta}>
+                                                    {isBill ? 'Conta fixa' : fmtDate((tx as { date: string }).date)} · {tx.category}
+                                                </Text>
+                                            </View>
+                                            <Text style={[styles.txAmount, { color: accentColor }]}>
+                                                {sign}{fmt(tx.amount)}
                                             </Text>
                                         </View>
-                                        <Text style={[styles.txAmount, { color: accentColor }]}>
-                                            {sign}{fmt(tx.amount)}
-                                        </Text>
-                                    </View>
-                                );
-                            })
-                        )}
-                    </View>
-                </>
-            )}
-        </ScrollView>
+                                    );
+                                })
+                            )}
+                        </View>
+                    </>
+                )}
+            </ScrollView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: colors.bg },
+    stickyHeader: { backgroundColor: colors.bg, borderBottomWidth: 1, borderBottomColor: colors.border },
+    hRow1: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.sm, gap: spacing.sm },
     content: { padding: spacing.lg, paddingBottom: spacing.xxl },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg },
-    headerLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
     hamburger: { padding: 2 },
-    greeting: { color: colors.textPrimary, fontSize: fontSize.xl, fontWeight: fontWeight.bold },
+    greeting: { flex: 1, color: colors.textPrimary, fontSize: fontSize.xl, fontWeight: fontWeight.bold },
     subtitle: { color: colors.textMuted, fontSize: fontSize.sm, marginTop: 2 },
     cardsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
     card: { backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.md, ...shadow },

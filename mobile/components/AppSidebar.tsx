@@ -173,11 +173,6 @@ export function AppSidebar() {
                                 <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>
                                     {item.label}
                                 </Text>
-                                {item.premium && (
-                                    <View style={styles.premiumBadge}>
-                                        <Text style={styles.premiumText}>Premium</Text>
-                                    </View>
-                                )}
                             </TouchableOpacity>
                         );
                     })}
@@ -319,7 +314,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: spacing.lg,
-        paddingTop: spacing.xl + 8, // account for status bar
+        paddingTop: spacing.md,
         paddingBottom: spacing.md,
         borderBottomWidth: 1,
         borderBottomColor: colors.border,

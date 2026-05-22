@@ -66,111 +66,115 @@ export default function InsightsPage() {
     const progressColor = progressPct >= 90 ? colors.expense : progressPct >= 70 ? '#f59e0b' : colors.income;
 
     return (
-        <ScrollView
-            style={s.root}
-            contentContainerStyle={{ padding: spacing.md, paddingBottom: 100 }}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-        >
-            {/* Header */}
-            <View style={s.headerRow}>
-                <TouchableOpacity onPress={openSidebar} style={s.hamburger} hitSlop={8}>
-                    <IconMenu color={colors.textPrimary} size={22} />
-                </TouchableOpacity>
-                <Text style={s.title}>Inteligência</Text>
-                <SeletorMes value={month} months={months} onChange={m => setMonth(m)} />
+        <View style={s.root}>
+            {/* Header fixo: Linha 1 */}
+            <View style={s.stickyHeader}>
+                <View style={s.hRow1}>
+                    <TouchableOpacity onPress={openSidebar} style={s.hamburger} hitSlop={8}>
+                        <IconMenu color={colors.textPrimary} size={22} />
+                    </TouchableOpacity>
+                    <Text style={s.title}>Inteligência</Text>
+                    <SeletorMes value={month} months={months} onChange={m => setMonth(m)} />
+                </View>
             </View>
+            <ScrollView
+                contentContainerStyle={{ padding: spacing.md, paddingBottom: 100 }}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+            >
 
-            {/* Forecast section */}
-            {f && (
-                <View style={s.section}>
-                    <Text style={s.sectionTitle}>💡 Projeção de Saldo — {fmtMonth(month)}</Text>
+                {/* Forecast section */}
+                {f && (
+                    <View style={s.section}>
+                        <Text style={s.sectionTitle}>💡 Projeção de Saldo — {fmtMonth(month)}</Text>
 
-                    {/* Alert */}
-                    {(() => {
-                        if (!f.isCurrentMonth) return <View style={[s.alert, s.alertInfo]}><Text style={s.alertText}>ℹ️ Visualizando projeção para um mês não corrente.</Text></View>;
-                        if (f.currentBalance < 0 || f.projectedBalance < 0)
-                            return <View style={[s.alert, s.alertDanger]}><Text style={s.alertText}>🔴 Atenção: seu saldo {f.currentBalance < 0 ? 'já está negativo' : `ficará negativo${f.negativeDayForecast ? ` por volta do dia ${f.negativeDayForecast}` : ''}`}. Revise seus gastos.</Text></View>;
-                        if (f.negativeDayForecast)
-                            return <View style={[s.alert, s.alertDanger]}><Text style={s.alertText}>⚠️ Cuidado: se continuar assim, você ficará negativo por volta do dia {f.negativeDayForecast}.</Text></View>;
-                        if (progressPct >= 90)
-                            return <View style={[s.alert, s.alertDanger]}><Text style={s.alertText}>⚠️ Comprometimento crítico ({progressPct.toFixed(1)}%)! Suas despesas estão consumindo quase toda a receita.</Text></View>;
-                        if (progressPct >= 70)
-                            return <View style={[s.alert, s.alertWarning]}><Text style={s.alertText}>🟡 Atenção: {progressPct.toFixed(1)}% da receita já comprometida.</Text></View>;
-                        return <View style={[s.alert, s.alertSuccess]}><Text style={s.alertText}>✅ Projeção positiva! Você deve fechar o mês no azul.</Text></View>;
-                    })()}
+                        {/* Alert */}
+                        {(() => {
+                            if (!f.isCurrentMonth) return <View style={[s.alert, s.alertInfo]}><Text style={s.alertText}>ℹ️ Visualizando projeção para um mês não corrente.</Text></View>;
+                            if (f.currentBalance < 0 || f.projectedBalance < 0)
+                                return <View style={[s.alert, s.alertDanger]}><Text style={s.alertText}>🔴 Atenção: seu saldo {f.currentBalance < 0 ? 'já está negativo' : `ficará negativo${f.negativeDayForecast ? ` por volta do dia ${f.negativeDayForecast}` : ''}`}. Revise seus gastos.</Text></View>;
+                            if (f.negativeDayForecast)
+                                return <View style={[s.alert, s.alertDanger]}><Text style={s.alertText}>⚠️ Cuidado: se continuar assim, você ficará negativo por volta do dia {f.negativeDayForecast}.</Text></View>;
+                            if (progressPct >= 90)
+                                return <View style={[s.alert, s.alertDanger]}><Text style={s.alertText}>⚠️ Comprometimento crítico ({progressPct.toFixed(1)}%)! Suas despesas estão consumindo quase toda a receita.</Text></View>;
+                            if (progressPct >= 70)
+                                return <View style={[s.alert, s.alertWarning]}><Text style={s.alertText}>🟡 Atenção: {progressPct.toFixed(1)}% da receita já comprometida.</Text></View>;
+                            return <View style={[s.alert, s.alertSuccess]}><Text style={s.alertText}>✅ Projeção positiva! Você deve fechar o mês no azul.</Text></View>;
+                        })()}
 
-                    {/* 3 info cards */}
-                    <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                        {[
-                            { label: 'Saldo atual', value: fmt(f.currentBalance), sub: `Dia ${f.dayOfMonth}`, color: f.currentBalance >= 0 ? colors.income : colors.expense },
-                            { label: 'Saldo projetado', value: fmt(f.projectedBalance), sub: `${fmt(f.dailyExpenseRate)}/dia × ${f.daysRemaining} dias`, color: f.projectedBalance >= 0 ? colors.income : colors.expense },
-                            { label: 'Contas em aberto', value: fmt(f.unpaidBillsTotal), sub: `De ${fmt(f.totalBills)} total`, color: f.unpaidBillsTotal > 0 ? colors.expense : colors.income },
-                        ].map(c => (
-                            <View key={c.label} style={s.infoCard}>
-                                <Text style={s.infoLabel}>{c.label}</Text>
-                                <Text style={[s.infoValue, { color: c.color }]}>{c.value}</Text>
-                                <Text style={s.infoSub}>{c.sub}</Text>
+                        {/* 3 info cards */}
+                        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                            {[
+                                { label: 'Saldo atual', value: fmt(f.currentBalance), sub: `Dia ${f.dayOfMonth}`, color: f.currentBalance >= 0 ? colors.income : colors.expense },
+                                { label: 'Saldo projetado', value: fmt(f.projectedBalance), sub: `${fmt(f.dailyExpenseRate)}/dia × ${f.daysRemaining} dias`, color: f.projectedBalance >= 0 ? colors.income : colors.expense },
+                                { label: 'Contas em aberto', value: fmt(f.unpaidBillsTotal), sub: `De ${fmt(f.totalBills)} total`, color: f.unpaidBillsTotal > 0 ? colors.expense : colors.income },
+                            ].map(c => (
+                                <View key={c.label} style={s.infoCard}>
+                                    <Text style={s.infoLabel}>{c.label}</Text>
+                                    <Text style={[s.infoValue, { color: c.color }]}>{c.value}</Text>
+                                    <Text style={s.infoSub}>{c.sub}</Text>
+                                </View>
+                            ))}
+                        </View>
+
+                        {/* Progress bar */}
+                        <View style={{ marginTop: spacing.md }}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                                <Text style={s.barLabel}>Comprometimento da receita</Text>
+                                <Text style={[s.barLabel, { color: progressColor }]}>{progressPct.toFixed(1)}%</Text>
                             </View>
-                        ))}
-                    </View>
-
-                    {/* Progress bar */}
-                    <View style={{ marginTop: spacing.md }}>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                            <Text style={s.barLabel}>Comprometimento da receita</Text>
-                            <Text style={[s.barLabel, { color: progressColor }]}>{progressPct.toFixed(1)}%</Text>
-                        </View>
-                        <View style={s.barBg}><View style={[s.barFill, { width: `${progressPct}%` as any, backgroundColor: progressColor }]} /></View>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
-                            <Text style={s.barLegend}>🟢 &lt;70% saudável</Text>
-                            <Text style={s.barLegend}>🟡 70–90% atenção</Text>
-                            <Text style={s.barLegend}>🔴 &gt;90% crítico</Text>
+                            <View style={s.barBg}><View style={[s.barFill, { width: `${progressPct}%` as any, backgroundColor: progressColor }]} /></View>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
+                                <Text style={s.barLegend}>🟢 &lt;70% saudável</Text>
+                                <Text style={s.barLegend}>🟡 70–90% atenção</Text>
+                                <Text style={s.barLegend}>🔴 &gt;90% crítico</Text>
+                            </View>
                         </View>
                     </View>
-                </View>
-            )}
+                )}
 
-            {/* Subscriptions */}
-            {subs && (
-                <View style={s.section}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm }}>
-                        <Text style={s.sectionTitle}>📦 Análise de Gastos</Text>
-                        <Text style={[s.sectionTitle, { color: colors.expense, fontSize: fontSize.sm }]}>{fmt(subs.total)}</Text>
-                    </View>
-                    {Object.entries(subs.groups).map(([name, group]) => {
-                        const items = Array.isArray(group) ? group as any[] : group.items;
-                        const total = typeof (group as any).total === 'number' ? (group as any).total : items.reduce((s, i) => s + i.amount, 0);
-                        const isOpen = openGroups[name];
-                        return (
-                            <View key={name} style={s.groupCard}>
-                                <TouchableOpacity style={s.groupHeader} onPress={() => toggleGroup(name)}>
-                                    <Text style={s.groupName}>{name}</Text>
-                                    <Text style={s.groupCount}>{items.length}</Text>
-                                    <Text style={s.groupTotal}>{fmt(total)}</Text>
-                                    <Text style={s.chevron}>{isOpen ? '▲' : '▼'}</Text>
-                                </TouchableOpacity>
-                                {isOpen && items.sort((a, b) => b.amount - a.amount).map((item, idx) => (
-                                    <View key={idx} style={s.subItem}>
-                                        <Text style={s.subName} numberOfLines={1}>{item.name}</Text>
-                                        <View style={[s.subTag, item.source === 'conta_fixa' ? s.subTagBill : s.subTagExp]}>
-                                            <Text style={s.subTagText}>{item.source === 'conta_fixa' ? 'Fixa' : 'Variável'}</Text>
+                {/* Subscriptions */}
+                {subs && (
+                    <View style={s.section}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm }}>
+                            <Text style={s.sectionTitle}>📦 Análise de Gastos</Text>
+                            <Text style={[s.sectionTitle, { color: colors.expense, fontSize: fontSize.sm }]}>{fmt(subs.total)}</Text>
+                        </View>
+                        {Object.entries(subs.groups).map(([name, group]) => {
+                            const items = Array.isArray(group) ? group as any[] : group.items;
+                            const total = typeof (group as any).total === 'number' ? (group as any).total : items.reduce((s, i) => s + i.amount, 0);
+                            const isOpen = openGroups[name];
+                            return (
+                                <View key={name} style={s.groupCard}>
+                                    <TouchableOpacity style={s.groupHeader} onPress={() => toggleGroup(name)}>
+                                        <Text style={s.groupName}>{name}</Text>
+                                        <Text style={s.groupCount}>{items.length}</Text>
+                                        <Text style={s.groupTotal}>{fmt(total)}</Text>
+                                        <Text style={s.chevron}>{isOpen ? '▲' : '▼'}</Text>
+                                    </TouchableOpacity>
+                                    {isOpen && items.sort((a, b) => b.amount - a.amount).map((item, idx) => (
+                                        <View key={idx} style={s.subItem}>
+                                            <Text style={s.subName} numberOfLines={1}>{item.name}</Text>
+                                            <View style={[s.subTag, item.source === 'conta_fixa' ? s.subTagBill : s.subTagExp]}>
+                                                <Text style={s.subTagText}>{item.source === 'conta_fixa' ? 'Fixa' : 'Variável'}</Text>
+                                            </View>
+                                            <Text style={s.subAmt}>{fmt(item.amount)}</Text>
                                         </View>
-                                        <Text style={s.subAmt}>{fmt(item.amount)}</Text>
-                                    </View>
-                                ))}
-                            </View>
-                        );
-                    })}
-                    {Object.keys(subs.groups).length === 0 && <Text style={s.empty}>Nenhum gasto registrado neste mês.</Text>}
-                </View>
-            )}
-        </ScrollView>
+                                    ))}
+                                </View>
+                            );
+                        })}
+                        {Object.keys(subs.groups).length === 0 && <Text style={s.empty}>Nenhum gasto registrado neste mês.</Text>}
+                    </View>
+                )}
+            </ScrollView>
+        </View>
     );
 }
 
 const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: colors.bg },
-    headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md, gap: spacing.sm },
+    stickyHeader: { backgroundColor: colors.bg, borderBottomWidth: 1, borderBottomColor: colors.border },
+    hRow1: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.sm, gap: spacing.sm },
     hamburger: { padding: 2 },
     title: { flex: 1, color: colors.textPrimary, fontSize: fontSize.xl, fontWeight: fontWeight.bold },
     section: { backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md },

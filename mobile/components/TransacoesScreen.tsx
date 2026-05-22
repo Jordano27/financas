@@ -178,33 +178,36 @@ export function TransacoesScreen({ type }: Props) {
 
     return (
         <View style={s.root}>
-            {/* Header */}
-            <View style={s.header}>
-                <TouchableOpacity onPress={openSidebar} style={s.hamburger} hitSlop={8}>
-                    <IconMenu color={colors.textPrimary} size={22} />
-                </TouchableOpacity>
-                <View style={s.headerInfo}>
+            {/* Header fixo: 3 linhas */}
+            <View style={s.stickyHeader}>
+                {/* Linha 1: Hambúrguer + Título + SeletorMes */}
+                <View style={s.hRow1}>
+                    <TouchableOpacity onPress={openSidebar} style={s.hamburger} hitSlop={8}>
+                        <IconMenu color={colors.textPrimary} size={22} />
+                    </TouchableOpacity>
                     <Text style={s.headerTitle}>{label}</Text>
+                    <SeletorMes value={month} months={months} onChange={m => setMonth(m)} />
+                </View>
+                {/* Linha 2: Total + Botão Adicionar */}
+                <View style={s.hRow2}>
                     <View style={[s.summaryPill, { backgroundColor: type === 'income' ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)' }]}>
                         <Text style={[s.summaryPillText, { color: accent }]}>
-                            {type === 'income' ? '\u2191' : '\u2193'} {label}: {fmt(total)}
+                            {type === 'income' ? '\u2191' : '\u2193'} Total de {label}: {fmt(total)}
                         </Text>
                     </View>
-                </View>
-                <View style={{ gap: spacing.xs }}>
-                    <SeletorMes value={month} months={months} onChange={m => setMonth(m)} />
-                    <TouchableOpacity style={[s.addBtn, { backgroundColor: accent }]} onPress={() => { setEditing(null); setModalVisible(true); }}>
-                        <Text style={s.addBtnText}>+ Adicionar {label}</Text>
+                    <TouchableOpacity style={[s.addBtn, { backgroundColor: type === 'income' ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)' }]} onPress={() => { setEditing(null); setModalVisible(true); }}>
+                        <Text style={[s.addBtnText, { color: accent }]}>+ Adicionar {label}</Text>
                     </TouchableOpacity>
                 </View>
+                {/* Linha 3: Barra de Busca */}
+                <View style={s.hRow3}>
+                    <View style={s.searchWrap}>
+                        <TextInput style={s.search} value={query} onChangeText={setQuery} placeholder="Buscar por descrição ou categoria…" placeholderTextColor={colors.textMuted} />
+                        {!!query && <TouchableOpacity onPress={() => setQuery('')}><Text style={s.searchClear}>✕</Text></TouchableOpacity>}
+                    </View>
+                    {!!query && <Text style={s.searchCount}>{filtered.length} de {items.length} resultado{items.length !== 1 ? 's' : ''}</Text>}
+                </View>
             </View>
-
-            {/* Busca */}
-            <View style={s.searchWrap}>
-                <TextInput style={s.search} value={query} onChangeText={setQuery} placeholder="Buscar por descrição ou categoria…" placeholderTextColor={colors.textMuted} />
-                {!!query && <TouchableOpacity onPress={() => setQuery('')}><Text style={s.searchClear}>✕</Text></TouchableOpacity>}
-            </View>
-            {!!query && <Text style={s.searchCount}>{filtered.length} de {items.length} resultado{items.length !== 1 ? 's' : ''}</Text>}
 
             {loading ? (
                 <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />
@@ -252,18 +255,20 @@ export function TransacoesScreen({ type }: Props) {
 
 const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: colors.bg },
-    header: { flexDirection: 'row', alignItems: 'flex-start', padding: spacing.lg, paddingBottom: spacing.sm, gap: spacing.sm },
-    hamburger: { paddingTop: 2 },
-    headerInfo: { flex: 1, alignItems: 'flex-start' },
-    headerTitle: { color: colors.textPrimary, fontSize: fontSize.xl, fontWeight: fontWeight.bold },
-    summaryPill: { alignSelf: 'flex-start', borderRadius: radius.full, paddingHorizontal: 12, paddingVertical: 4, marginTop: 4, alignItems: 'flex-start' },
+    stickyHeader: { backgroundColor: colors.bg, borderBottomWidth: 1, borderBottomColor: colors.border },
+    hRow1: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.xs, gap: spacing.sm },
+    hRow2: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingVertical: spacing.xs, gap: spacing.sm },
+    hRow3: { paddingHorizontal: spacing.md, paddingTop: spacing.xs, paddingBottom: spacing.sm },
+    hamburger: { padding: 2 },
+    headerTitle: { flex: 1, color: colors.textPrimary, fontSize: fontSize.xl, fontWeight: fontWeight.bold },
+    summaryPill: { alignSelf: 'flex-start', borderRadius: radius.full, paddingHorizontal: 12, paddingVertical: 4 },
     summaryPillText: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold },
-    addBtn: { borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.xs + 2, alignItems: 'center' },
-    addBtnText: { color: '#fff', fontWeight: fontWeight.semibold, fontSize: fontSize.sm },
-    searchWrap: { flexDirection: 'row', alignItems: 'center', marginHorizontal: spacing.md, backgroundColor: colors.card, borderRadius: radius.md, paddingHorizontal: spacing.md, marginBottom: 4 },
+    addBtn: { borderRadius: radius.full, paddingHorizontal: 12, paddingVertical: 4, alignItems: 'center' },
+    addBtnText: { fontWeight: fontWeight.semibold, fontSize: fontSize.xs },
+    searchWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderRadius: radius.md, paddingHorizontal: spacing.md },
     search: { flex: 1, color: colors.textPrimary, fontSize: fontSize.sm, paddingVertical: spacing.sm },
     searchClear: { color: colors.textMuted, fontSize: fontSize.base, paddingLeft: spacing.sm },
-    searchCount: { color: colors.textMuted, fontSize: fontSize.xs, marginHorizontal: spacing.lg, marginBottom: spacing.sm },
+    searchCount: { color: colors.textMuted, fontSize: fontSize.xs, marginTop: 4 },
     empty: { color: colors.textMuted, textAlign: 'center', marginTop: 48, fontSize: fontSize.sm },
     txRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.sm, backgroundColor: colors.bg },
     txDot: { width: 8, height: 8, borderRadius: 4, marginRight: spacing.sm },

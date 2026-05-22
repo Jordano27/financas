@@ -5,8 +5,10 @@ import {
 } from 'react-native';
 import { api } from '@/services/api';
 import { useToast } from '@/contexts/ToastContext';
+import { useSidebar } from '@/contexts/SidebarContext';
 import { fmt, todayISO } from '@/utils/format';
 import { colors, fontSize, fontWeight, radius, spacing } from '@/constants/theme';
+import { IconMenu } from '@/components/Icon';
 
 interface Contribution {
     id: string;
@@ -222,6 +224,7 @@ function ContribsModal({ visible, onClose, onSaved, investment }: {
 // ─────────────── Tela Principal ──────────────────────────────────────────────
 export default function InvestimentosPage() {
     const toast = useToast();
+    const { open: openSidebar } = useSidebar();
     const [items, setItems] = useState<Investment[]>([]);
     const [query, setQuery] = useState('');
     const [loading, setLoading] = useState(true);
@@ -263,24 +266,35 @@ export default function InvestimentosPage() {
 
     return (
         <View style={s.root}>
-            <View style={s.header}>
-                <Text style={s.headerTitle}>Investimentos</Text>
-                <TouchableOpacity style={s.addBtn} onPress={() => { setEditing(null); setModalVisible(true); }}>
-                    <Text style={s.addBtnText}>+ Adicionar</Text>
-                </TouchableOpacity>
-            </View>
-
-            {items.length > 0 && (
-                <View style={s.totalBar}>
-                    <View style={s.totalItem}><Text style={s.totalLabel}>Investido</Text><Text style={s.totalVal}>{fmt(totalInvested)}</Text></View>
-                    <View style={s.totalItem}><Text style={s.totalLabel}>Atual</Text><Text style={[s.totalVal, { color: colors.invest }]}>{fmt(totalCurrent)}</Text></View>
-                    <View style={s.totalItem}><Text style={s.totalLabel}>Rendimento</Text><Text style={[s.totalVal, { color: totalGain >= 0 ? colors.income : colors.expense }]}>{totalGain >= 0 ? '+' : ''}{fmt(totalGain)}</Text></View>
+            {/* Header fixo: 3 linhas */}
+            <View style={s.stickyHeader}>
+                {/* Linha 1: Hambúrguer + Título */}
+                <View style={s.hRow1}>
+                    <TouchableOpacity onPress={openSidebar} style={s.hamburger} hitSlop={8}>
+                        <IconMenu color={colors.textPrimary} size={22} />
+                    </TouchableOpacity>
+                    <Text style={s.headerTitle}>Investimentos</Text>
                 </View>
-            )}
-
-            <View style={s.searchWrap}>
-                <TextInput style={s.search} value={query} onChangeText={setQuery} placeholder="Buscar…" placeholderTextColor={colors.textMuted} />
-                {!!query && <TouchableOpacity onPress={() => setQuery('')}><Text style={s.searchClear}>✕</Text></TouchableOpacity>}
+                {/* Linha 2: Totais + Botão Adicionar */}
+                <View style={s.hRow2}>
+                    <View style={s.totalsRow}>
+                        <View style={s.totalItem}><Text style={s.totalLabel}>Investido</Text><Text style={s.totalVal}>{fmt(totalInvested)}</Text></View>
+                        <View style={s.totalSep} />
+                        <View style={s.totalItem}><Text style={s.totalLabel}>Atual</Text><Text style={[s.totalVal, { color: colors.invest }]}>{fmt(totalCurrent)}</Text></View>
+                        <View style={s.totalSep} />
+                        <View style={s.totalItem}><Text style={s.totalLabel}>Rendimento</Text><Text style={[s.totalVal, { color: totalGain >= 0 ? colors.income : colors.expense }]}>{totalGain >= 0 ? '+' : ''}{fmt(totalGain)}</Text></View>
+                    </View>
+                    <TouchableOpacity style={s.addBtn} onPress={() => { setEditing(null); setModalVisible(true); }}>
+                        <Text style={s.addBtnText}>+ Adicionar</Text>
+                    </TouchableOpacity>
+                </View>
+                {/* Linha 3: Barra de Busca */}
+                <View style={s.hRow3}>
+                    <View style={s.searchWrap}>
+                        <TextInput style={s.search} value={query} onChangeText={setQuery} placeholder="Buscar…" placeholderTextColor={colors.textMuted} />
+                        {!!query && <TouchableOpacity onPress={() => setQuery('')}><Text style={s.searchClear}>✕</Text></TouchableOpacity>}
+                    </View>
+                </View>
             </View>
 
             {loading ? <ActivityIndicator color={colors.invest} style={{ marginTop: 40 }} /> : (
@@ -346,15 +360,20 @@ export default function InvestimentosPage() {
 
 const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: colors.bg },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: spacing.lg, paddingBottom: spacing.sm },
-    headerTitle: { color: colors.textPrimary, fontSize: fontSize.xl, fontWeight: fontWeight.bold },
-    addBtn: { borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.xs + 2, backgroundColor: colors.invest, alignItems: 'center' },
-    addBtnText: { color: '#fff', fontWeight: fontWeight.semibold, fontSize: fontSize.sm },
-    totalBar: { flexDirection: 'row', marginHorizontal: spacing.md, backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.sm },
-    totalItem: { flex: 1, alignItems: 'center' },
-    totalLabel: { color: colors.textMuted, fontSize: fontSize.xs },
-    totalVal: { color: colors.textPrimary, fontWeight: fontWeight.bold, fontSize: fontSize.sm, marginTop: 2 },
-    searchWrap: { flexDirection: 'row', alignItems: 'center', marginHorizontal: spacing.md, backgroundColor: colors.card, borderRadius: radius.md, paddingHorizontal: spacing.md, marginBottom: spacing.sm },
+    stickyHeader: { backgroundColor: colors.bg, borderBottomWidth: 1, borderBottomColor: colors.border },
+    hRow1: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.xs, gap: spacing.sm },
+    hRow2: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingVertical: spacing.xs, gap: spacing.sm },
+    hRow3: { paddingHorizontal: spacing.md, paddingTop: spacing.xs, paddingBottom: spacing.sm },
+    hamburger: { padding: 2 },
+    headerTitle: { flex: 1, color: colors.textPrimary, fontSize: fontSize.xl, fontWeight: fontWeight.bold },
+    totalsRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+    totalSep: { width: 1, height: 24, backgroundColor: colors.border },
+    addBtn: { borderRadius: radius.full, paddingHorizontal: 12, paddingVertical: 4, backgroundColor: 'rgba(139,92,246,0.15)', alignItems: 'center' },
+    addBtnText: { color: colors.invest, fontWeight: fontWeight.semibold, fontSize: fontSize.xs },
+    totalItem: { alignItems: 'center' },
+    totalLabel: { color: colors.textMuted, fontSize: 10 },
+    totalVal: { color: colors.textPrimary, fontWeight: fontWeight.bold, fontSize: fontSize.sm, marginTop: 1 },
+    searchWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderRadius: radius.md, paddingHorizontal: spacing.md },
     search: { flex: 1, color: colors.textPrimary, fontSize: fontSize.sm, paddingVertical: spacing.sm },
     searchClear: { color: colors.textMuted, fontSize: fontSize.base, paddingLeft: spacing.sm },
     empty: { color: colors.textMuted, textAlign: 'center', marginTop: 48, fontSize: fontSize.sm },

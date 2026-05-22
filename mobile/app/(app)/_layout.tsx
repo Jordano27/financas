@@ -46,28 +46,8 @@ function AppLayoutContent() {
                 />
 
                 {/* Sub-screens — hidden from tab bar */}
-                <Tabs.Screen
-                    name="investimentos"
-                    options={{
-                        href: null,
-                        headerShown: true,
-                        headerTitle: '',
-                        headerLeft: () => <HamburgerButton />,
-                        headerStyle: { backgroundColor: colors.bg },
-                        headerShadowVisible: false,
-                    }}
-                />
-                <Tabs.Screen
-                    name="metas"
-                    options={{
-                        href: null,
-                        headerShown: true,
-                        headerTitle: '',
-                        headerLeft: () => <HamburgerButton />,
-                        headerStyle: { backgroundColor: colors.bg },
-                        headerShadowVisible: false,
-                    }}
-                />
+                <Tabs.Screen name="investimentos" options={{ href: null, headerShown: false }} />
+                <Tabs.Screen name="metas" options={{ href: null, headerShown: false }} />
                 <Tabs.Screen
                     name="insights"
                     options={{ href: null, headerShown: false }}

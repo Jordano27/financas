@@ -77,130 +77,134 @@ export default function SaudePage() {
     ];
 
     return (
-        <ScrollView
-            style={s.root}
-            contentContainerStyle={{ padding: spacing.md, paddingBottom: 100 }}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.income} />}
-        >
-            {/* Header */}
-            <View style={s.headerRow}>
-                <TouchableOpacity onPress={openSidebar} style={s.hamburger} hitSlop={8}>
-                    <IconMenu color={colors.textPrimary} size={22} />
-                </TouchableOpacity>
-                <Text style={s.title}>Saúde Financeira</Text>
-                <SeletorMes value={month} months={months} onChange={m => setMonth(m)} />
-            </View>
-
-            {/* Score card */}
-            <View style={[s.scoreCard, { borderTopColor: sc }]}>
-                <View style={s.scoreLeft}>
-                    <Text style={[s.scoreNumber, { color: sc }]}>{health.score}</Text>
-                    <Text style={s.scoreOf}>/100</Text>
-                    <Text style={[s.scoreLabel, { color: sc }]}>{health.label}</Text>
-                    <Text style={s.scoreSub}>Regra 50-30-20</Text>
-                </View>
-                <View style={s.scoreRight}>
-                    <Text style={s.scoreDetail}>Renda: {fmt(current.totalIncome)}</Text>
-                    <Text style={[s.scoreDetail, { color: current.balance >= 0 ? colors.income : colors.expense }]}>Saldo: {fmt(current.balance)}</Text>
-                    {health.tips.map((t, i) => (
-                        <Text key={i} style={s.tip}>• {t}</Text>
-                    ))}
+        <View style={s.root}>
+            {/* Header fixo: Linha 1 */}
+            <View style={s.stickyHeader}>
+                <View style={s.hRow1}>
+                    <TouchableOpacity onPress={openSidebar} style={s.hamburger} hitSlop={8}>
+                        <IconMenu color={colors.textPrimary} size={22} />
+                    </TouchableOpacity>
+                    <Text style={s.title}>Saúde Financeira</Text>
+                    <SeletorMes value={month} months={months} onChange={m => setMonth(m)} />
                 </View>
             </View>
+            <ScrollView
+                contentContainerStyle={{ padding: spacing.md, paddingBottom: 100 }}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.income} />}
+            >
 
-            {/* Pillars 50-30-20 */}
-            <View style={s.section}>
-                <Text style={s.sectionTitle}>📊 Distribuição 50-30-20</Text>
-                {pillars.map(p => {
-                    const ok = p.dir === 'lte' ? p.pct <= p.target : p.pct >= p.target;
-                    const color = ok ? colors.income : colors.expense;
-                    const barPct = Math.min(100, p.dir === 'lte' ? (p.pct / (p.target * 1.5)) * 100 : (p.pct / p.target) * 100);
-                    const gapVal = p.dir === 'lte'
-                        ? (gap?.needs ?? 0) * (p.name === 'Necessidades' ? 1 : 0) + (gap?.wants ?? 0) * (p.name === 'Desejos' ? 1 : 0)
-                        : (gap?.invest ?? 0);
-                    return (
-                        <View key={p.name} style={s.pillarCard}>
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
-                                    <Text style={{ fontSize: 20 }}>{p.icon}</Text>
-                                    <View>
-                                        <Text style={s.pillarName}>{p.name}</Text>
-                                        <Text style={s.pillarMeta}>Meta: {p.label}</Text>
+                {/* Score card */}
+                <View style={[s.scoreCard, { borderTopColor: sc }]}>
+                    <View style={s.scoreLeft}>
+                        <Text style={[s.scoreNumber, { color: sc }]}>{health.score}</Text>
+                        <Text style={s.scoreOf}>/100</Text>
+                        <Text style={[s.scoreLabel, { color: sc }]}>{health.label}</Text>
+                        <Text style={s.scoreSub}>Regra 50-30-20</Text>
+                    </View>
+                    <View style={s.scoreRight}>
+                        <Text style={s.scoreDetail}>Renda: {fmt(current.totalIncome)}</Text>
+                        <Text style={[s.scoreDetail, { color: current.balance >= 0 ? colors.income : colors.expense }]}>Saldo: {fmt(current.balance)}</Text>
+                        {health.tips.map((t, i) => (
+                            <Text key={i} style={s.tip}>• {t}</Text>
+                        ))}
+                    </View>
+                </View>
+
+                {/* Pillars 50-30-20 */}
+                <View style={s.section}>
+                    <Text style={s.sectionTitle}>📊 Distribuição 50-30-20</Text>
+                    {pillars.map(p => {
+                        const ok = p.dir === 'lte' ? p.pct <= p.target : p.pct >= p.target;
+                        const color = ok ? colors.income : colors.expense;
+                        const barPct = Math.min(100, p.dir === 'lte' ? (p.pct / (p.target * 1.5)) * 100 : (p.pct / p.target) * 100);
+                        const gapVal = p.dir === 'lte'
+                            ? (gap?.needs ?? 0) * (p.name === 'Necessidades' ? 1 : 0) + (gap?.wants ?? 0) * (p.name === 'Desejos' ? 1 : 0)
+                            : (gap?.invest ?? 0);
+                        return (
+                            <View key={p.name} style={s.pillarCard}>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+                                        <Text style={{ fontSize: 20 }}>{p.icon}</Text>
+                                        <View>
+                                            <Text style={s.pillarName}>{p.name}</Text>
+                                            <Text style={s.pillarMeta}>Meta: {p.label}</Text>
+                                        </View>
                                     </View>
+                                    <Text style={[s.pillarScore, { color }]}>{Math.round(p.score)}</Text>
                                 </View>
-                                <Text style={[s.pillarScore, { color }]}>{Math.round(p.score)}</Text>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginVertical: 4 }}>
+                                    <Text style={s.pillarStat}>Atual: {fmt(p.actual)} ({p.pct.toFixed(1)}%)</Text>
+                                    <Text style={s.pillarStat}>Ideal: {fmt(p.idealAmt)}</Text>
+                                </View>
+                                <View style={s.barBg}><View style={[s.barFill, { width: `${barPct}%` as any, backgroundColor: color }]} /></View>
+                                <Text style={[s.pillarGap, { color }]}>
+                                    {ok ? '✓ Dentro da meta' : p.dir === 'lte' ? `Reduzir ${fmt(gapVal)}/mês` : `Aumentar ${fmt(gapVal)}/mês`}
+                                </Text>
                             </View>
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginVertical: 4 }}>
-                                <Text style={s.pillarStat}>Atual: {fmt(p.actual)} ({p.pct.toFixed(1)}%)</Text>
-                                <Text style={s.pillarStat}>Ideal: {fmt(p.idealAmt)}</Text>
-                            </View>
-                            <View style={s.barBg}><View style={[s.barFill, { width: `${barPct}%` as any, backgroundColor: color }]} /></View>
-                            <Text style={[s.pillarGap, { color }]}>
-                                {ok ? '✓ Dentro da meta' : p.dir === 'lte' ? `Reduzir ${fmt(gapVal)}/mês` : `Aumentar ${fmt(gapVal)}/mês`}
-                            </Text>
-                        </View>
-                    );
-                })}
-            </View>
-
-            {/* History */}
-            {data?.history && data.history.length > 0 && (
-                <View style={s.section}>
-                    <Text style={s.sectionTitle}>📅 Tendência dos últimos meses</Text>
-                    {data.history.map(h => (
-                        <View key={h.month} style={s.histRow}>
-                            <Text style={s.histMonth}>{fmtMonth(h.month)}</Text>
-                            <View style={[s.barBg, { flex: 1, marginHorizontal: spacing.sm }]}>
-                                <View style={[s.barFill, { width: `${h.score}%` as any, backgroundColor: scoreColor(h.score) }]} />
-                            </View>
-                            <Text style={[s.histScore, { color: scoreColor(h.score) }]}>{h.score}</Text>
-                        </View>
-                    ))}
+                        );
+                    })}
                 </View>
-            )}
 
-            {/* Projections */}
-            {data?.projections && data.projections.length > 0 && (
-                <View style={s.section}>
-                    <Text style={s.sectionTitle}>🔮 Projeção futura</Text>
-                    <Text style={s.sectionSub}>Saldo acumulado mantendo o ritmo atual</Text>
-                    {data.projections.map(p => (
-                        <View key={p.month} style={s.projRow}>
-                            <Text style={s.projLabel}>+{p.month} mês{p.month > 1 ? 'es' : ''}</Text>
-                            <Text style={[s.projVal, { color: p.cumulativeBalance >= 0 ? colors.income : colors.expense }]}>{fmt(p.cumulativeBalance)}</Text>
-                            <Text style={s.projStatus}>{p.cumulativeBalance >= 0 ? 'positivo' : 'negativo'}</Text>
-                        </View>
-                    ))}
-                </View>
-            )}
-
-            {/* Plan */}
-            {data?.plan && (
-                <View style={s.section}>
-                    <Text style={s.sectionTitle}>{health.score < 65 ? '🛠️ Plano de Melhora' : '🚀 Plano de Aprimoramento'}</Text>
-                    {data.plan.length === 0 ? (
-                        <Text style={{ color: colors.income, fontSize: fontSize.sm }}>✅ Parabéns! Você está seguindo a regra 50-30-20.</Text>
-                    ) : data.plan.map((p, i) => (
-                        <View key={i} style={[s.planItem, p.impact === 'high' ? s.planHigh : p.impact === 'medium' ? s.planMedium : s.planLow]}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: 2 }}>
-                                <Text style={s.planPillar}>{p.pillar}</Text>
-                                <Text style={s.planBadge}>{p.impact}</Text>
+                {/* History */}
+                {data?.history && data.history.length > 0 && (
+                    <View style={s.section}>
+                        <Text style={s.sectionTitle}>📅 Tendência dos últimos meses</Text>
+                        {data.history.map(h => (
+                            <View key={h.month} style={s.histRow}>
+                                <Text style={s.histMonth}>{fmtMonth(h.month)}</Text>
+                                <View style={[s.barBg, { flex: 1, marginHorizontal: spacing.sm }]}>
+                                    <View style={[s.barFill, { width: `${h.score}%` as any, backgroundColor: scoreColor(h.score) }]} />
+                                </View>
+                                <Text style={[s.histScore, { color: scoreColor(h.score) }]}>{h.score}</Text>
                             </View>
-                            <Text style={s.planAction}>{p.action}</Text>
-                        </View>
-                    ))}
-                    {data.enhancements?.map((e, i) => (
-                        <View key={`enh-${i}`} style={s.planEnhance}><Text style={s.planAction}>{e}</Text></View>
-                    ))}
-                </View>
-            )}
-        </ScrollView>
+                        ))}
+                    </View>
+                )}
+
+                {/* Projections */}
+                {data?.projections && data.projections.length > 0 && (
+                    <View style={s.section}>
+                        <Text style={s.sectionTitle}>🔮 Projeção futura</Text>
+                        <Text style={s.sectionSub}>Saldo acumulado mantendo o ritmo atual</Text>
+                        {data.projections.map(p => (
+                            <View key={p.month} style={s.projRow}>
+                                <Text style={s.projLabel}>+{p.month} mês{p.month > 1 ? 'es' : ''}</Text>
+                                <Text style={[s.projVal, { color: p.cumulativeBalance >= 0 ? colors.income : colors.expense }]}>{fmt(p.cumulativeBalance)}</Text>
+                                <Text style={s.projStatus}>{p.cumulativeBalance >= 0 ? 'positivo' : 'negativo'}</Text>
+                            </View>
+                        ))}
+                    </View>
+                )}
+
+                {/* Plan */}
+                {data?.plan && (
+                    <View style={s.section}>
+                        <Text style={s.sectionTitle}>{health.score < 65 ? '🛠️ Plano de Melhora' : '🚀 Plano de Aprimoramento'}</Text>
+                        {data.plan.length === 0 ? (
+                            <Text style={{ color: colors.income, fontSize: fontSize.sm }}>✅ Parabéns! Você está seguindo a regra 50-30-20.</Text>
+                        ) : data.plan.map((p, i) => (
+                            <View key={i} style={[s.planItem, p.impact === 'high' ? s.planHigh : p.impact === 'medium' ? s.planMedium : s.planLow]}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: 2 }}>
+                                    <Text style={s.planPillar}>{p.pillar}</Text>
+                                    <Text style={s.planBadge}>{p.impact}</Text>
+                                </View>
+                                <Text style={s.planAction}>{p.action}</Text>
+                            </View>
+                        ))}
+                        {data.enhancements?.map((e, i) => (
+                            <View key={`enh-${i}`} style={s.planEnhance}><Text style={s.planAction}>{e}</Text></View>
+                        ))}
+                    </View>
+                )}
+            </ScrollView>
+        </View>
     );
 }
 
 const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: colors.bg },
-    headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md, gap: spacing.sm },
+    stickyHeader: { backgroundColor: colors.bg, borderBottomWidth: 1, borderBottomColor: colors.border },
+    hRow1: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.sm, gap: spacing.sm },
     hamburger: { padding: 2 },
     title: { flex: 1, color: colors.textPrimary, fontSize: fontSize.xl, fontWeight: fontWeight.bold },
     empty: { color: colors.textMuted, textAlign: 'center', marginTop: 48, fontSize: fontSize.sm },

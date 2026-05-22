@@ -112,115 +112,119 @@ export default function RelatoriosPage() {
     const doneGoals = goals.filter(g => (g.savedAmount || 0) >= g.targetAmount);
 
     return (
-        <ScrollView
-            style={s.root}
-            contentContainerStyle={{ padding: spacing.md, paddingBottom: 100 }}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-        >
-            {/* Header */}
-            <View style={s.headerRow}>
-                <TouchableOpacity onPress={openSidebar} style={s.hamburger} hitSlop={8}>
-                    <IconMenu color={colors.textPrimary} size={22} />
-                </TouchableOpacity>
-                <Text style={s.title}>Relatórios</Text>
-                <SeletorMes value={month} months={months} onChange={m => setMonth(m)} />
-            </View>
-
-            {/* Saúde score */}
-            {stats.health && (
-                <View style={[s.healthCard, { borderLeftColor: stats.health.score >= 65 ? colors.income : colors.expense }]}>
-                    <View>
-                        <Text style={s.healthLabel}>Saúde Financeira</Text>
-                        <Text style={s.healthLabelSub}>{fmtMonth(month)}</Text>
-                    </View>
-                    <View style={{ alignItems: 'flex-end' }}>
-                        <Text style={[s.healthScore, { color: stats.health.score >= 85 ? colors.income : stats.health.score >= 65 ? '#f59e0b' : colors.expense }]}>{stats.health.score}</Text>
-                        <Text style={s.healthLabelSub}>{stats.health.label}</Text>
-                    </View>
+        <View style={s.root}>
+            {/* Header fixo: Linha 1 */}
+            <View style={s.stickyHeader}>
+                <View style={s.hRow1}>
+                    <TouchableOpacity onPress={openSidebar} style={s.hamburger} hitSlop={8}>
+                        <IconMenu color={colors.textPrimary} size={22} />
+                    </TouchableOpacity>
+                    <Text style={s.title}>Relatórios</Text>
+                    <SeletorMes value={month} months={months} onChange={m => setMonth(m)} />
                 </View>
-            )}
-
-            {/* Resumo */}
-            <View style={s.section}>
-                <Text style={s.sectionTitle}>Resumo do Mês — {fmtMonth(month)}</Text>
-                <Row label="Ganhos" value={fmt(stats.totalIncome)} color={colors.income} />
-                <Row label="Gastos Variáveis" value={fmt(stats.totalExpense)} color={colors.expense} />
-                <Row label="Contas Fixas" value={fmt(stats.totalBills)} />
-                <Row label="Total de Saídas" value={fmt(stats.totalOutflow)} color={colors.expense} />
-                <Row label="Investido no mês" value={fmt(stats.totalInvested ?? 0)} color={colors.invest} />
-                <Row label="Saldo" value={fmt(stats.balance)} color={stats.balance >= 0 ? colors.income : colors.expense} />
-                <Row label="Taxa de Poupança" value={`${(stats.savingsRate ?? 0).toFixed(1)}%`} />
             </View>
+            <ScrollView
+                contentContainerStyle={{ padding: spacing.md, paddingBottom: 100 }}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+            >
 
-            {/* Adimplência */}
-            <View style={s.section}>
-                <Text style={s.sectionTitle}>Adimplência — {fmtMonth(month)}</Text>
-                <Row label="Contas ativas" value={`${totalBillsCount}`} />
-                <Row label={`✓ Pagas (${paidPct}%)`} value={`${paidBills.length} · ${fmt(paidBills.reduce((s, b) => s + b.amount, 0))}`} color={colors.income} />
-                <Row label={`⚠ Vencidas (${overduePct}%)`} value={`${overdueBills.length} · ${fmt(overdueBills.reduce((s, b) => s + b.amount, 0))}`} color={overdueBills.length > 0 ? colors.expense : colors.textMuted} />
-                {overdueBills.map(b => (
-                    <View key={b.id} style={{ paddingLeft: spacing.lg, paddingVertical: 2 }}>
-                        <Text style={s.overdueBill}>{b.description} — dia {b.dueDay} — {fmt(b.amount)}</Text>
+                {/* Saúde score */}
+                {stats.health && (
+                    <View style={[s.healthCard, { borderLeftColor: stats.health.score >= 65 ? colors.income : colors.expense }]}>
+                        <View>
+                            <Text style={s.healthLabel}>Saúde Financeira</Text>
+                            <Text style={s.healthLabelSub}>{fmtMonth(month)}</Text>
+                        </View>
+                        <View style={{ alignItems: 'flex-end' }}>
+                            <Text style={[s.healthScore, { color: stats.health.score >= 85 ? colors.income : stats.health.score >= 65 ? '#f59e0b' : colors.expense }]}>{stats.health.score}</Text>
+                            <Text style={s.healthLabelSub}>{stats.health.label}</Text>
+                        </View>
                     </View>
-                ))}
-            </View>
+                )}
 
-            {/* Metas */}
-            {goals.length > 0 && (
+                {/* Resumo */}
                 <View style={s.section}>
-                    <Text style={s.sectionTitle}>Metas — {goals.length} total · {doneGoals.length} concluída{doneGoals.length !== 1 ? 's' : ''}</Text>
-                    {goals.map(g => {
-                        const pct = Math.min(100, ((g.savedAmount || 0) / g.targetAmount) * 100);
-                        const color = pct >= 80 ? colors.income : pct >= 40 ? '#f59e0b' : colors.primary;
-                        return (
-                            <View key={g.description} style={{ marginBottom: spacing.xs }}>
-                                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                                    <Text style={s.goalName} numberOfLines={1}>{g.description}</Text>
-                                    <Text style={[s.goalPct, { color }]}>{pct.toFixed(1)}%</Text>
+                    <Text style={s.sectionTitle}>Resumo do Mês — {fmtMonth(month)}</Text>
+                    <Row label="Ganhos" value={fmt(stats.totalIncome)} color={colors.income} />
+                    <Row label="Gastos Variáveis" value={fmt(stats.totalExpense)} color={colors.expense} />
+                    <Row label="Contas Fixas" value={fmt(stats.totalBills)} />
+                    <Row label="Total de Saídas" value={fmt(stats.totalOutflow)} color={colors.expense} />
+                    <Row label="Investido no mês" value={fmt(stats.totalInvested ?? 0)} color={colors.invest} />
+                    <Row label="Saldo" value={fmt(stats.balance)} color={stats.balance >= 0 ? colors.income : colors.expense} />
+                    <Row label="Taxa de Poupança" value={`${(stats.savingsRate ?? 0).toFixed(1)}%`} />
+                </View>
+
+                {/* Adimplência */}
+                <View style={s.section}>
+                    <Text style={s.sectionTitle}>Adimplência — {fmtMonth(month)}</Text>
+                    <Row label="Contas ativas" value={`${totalBillsCount}`} />
+                    <Row label={`✓ Pagas (${paidPct}%)`} value={`${paidBills.length} · ${fmt(paidBills.reduce((s, b) => s + b.amount, 0))}`} color={colors.income} />
+                    <Row label={`⚠ Vencidas (${overduePct}%)`} value={`${overdueBills.length} · ${fmt(overdueBills.reduce((s, b) => s + b.amount, 0))}`} color={overdueBills.length > 0 ? colors.expense : colors.textMuted} />
+                    {overdueBills.map(b => (
+                        <View key={b.id} style={{ paddingLeft: spacing.lg, paddingVertical: 2 }}>
+                            <Text style={s.overdueBill}>{b.description} — dia {b.dueDay} — {fmt(b.amount)}</Text>
+                        </View>
+                    ))}
+                </View>
+
+                {/* Metas */}
+                {goals.length > 0 && (
+                    <View style={s.section}>
+                        <Text style={s.sectionTitle}>Metas — {goals.length} total · {doneGoals.length} concluída{doneGoals.length !== 1 ? 's' : ''}</Text>
+                        {goals.map(g => {
+                            const pct = Math.min(100, ((g.savedAmount || 0) / g.targetAmount) * 100);
+                            const color = pct >= 80 ? colors.income : pct >= 40 ? '#f59e0b' : colors.primary;
+                            return (
+                                <View key={g.description} style={{ marginBottom: spacing.xs }}>
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                                        <Text style={s.goalName} numberOfLines={1}>{g.description}</Text>
+                                        <Text style={[s.goalPct, { color }]}>{pct.toFixed(1)}%</Text>
+                                    </View>
+                                    <View style={s.barBg}><View style={[s.barFill, { width: `${pct}%` as any, backgroundColor: color }]} /></View>
+                                    <Text style={s.goalValues}>{fmt(g.savedAmount || 0)} / {fmt(g.targetAmount)}</Text>
                                 </View>
-                                <View style={s.barBg}><View style={[s.barFill, { width: `${pct}%` as any, backgroundColor: color }]} /></View>
-                                <Text style={s.goalValues}>{fmt(g.savedAmount || 0)} / {fmt(g.targetAmount)}</Text>
-                            </View>
-                        );
-                    })}
-                </View>
-            )}
+                            );
+                        })}
+                    </View>
+                )}
 
-            {/* Comparação */}
-            <View style={s.section}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm }}>
-                    <Text style={s.sectionTitle}>Comparação com mês anterior</Text>
-                </View>
-                <View style={s.cmpHeader}>
-                    <Text style={s.cmpLabelHeader}>Item</Text>
-                    <Text style={s.cmpColHeader}>{fmtMonth(comparison.previous.month)}</Text>
-                    <Text style={s.cmpColHeader}>Δ</Text>
-                    <Text style={s.cmpColHeader}>{fmtMonth(comparison.current.month)}</Text>
-                </View>
-                <CmpRow label="Ganhos" prev={comparison.previous.totalIncome} cur={comparison.current.totalIncome} />
-                <CmpRow label="Gastos Var." prev={comparison.previous.totalExpense} cur={comparison.current.totalExpense} />
-                <CmpRow label="Contas" prev={comparison.previous.totalBills} cur={comparison.current.totalBills} />
-                <CmpRow label="Saldo" prev={comparison.previous.balance} cur={comparison.current.balance} />
-            </View>
-
-            {/* Médias */}
-            {averages && averages.avgIncome !== undefined && (
+                {/* Comparação */}
                 <View style={s.section}>
-                    <Text style={s.sectionTitle}>Médias Mensais ({averages.monthsAnalyzed} mês{averages.monthsAnalyzed !== 1 ? 'es' : ''})</Text>
-                    <Row label="Média de Ganhos" value={fmt(averages.avgIncome)} color={colors.income} />
-                    <Row label="Média de Gastos" value={fmt(averages.avgExpense)} color={colors.expense} />
-                    <Row label="Média de Contas" value={fmt(averages.avgBills)} />
-                    <Row label="Média de Saldo" value={fmt(averages.avgBalance)} color={averages.avgBalance >= 0 ? colors.income : colors.expense} />
-                    <Row label="Média Poupança" value={`${(averages.avgSavingsRate ?? 0).toFixed(1)}%`} />
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm }}>
+                        <Text style={s.sectionTitle}>Comparação com mês anterior</Text>
+                    </View>
+                    <View style={s.cmpHeader}>
+                        <Text style={s.cmpLabelHeader}>Item</Text>
+                        <Text style={s.cmpColHeader}>{fmtMonth(comparison.previous.month)}</Text>
+                        <Text style={s.cmpColHeader}>Δ</Text>
+                        <Text style={s.cmpColHeader}>{fmtMonth(comparison.current.month)}</Text>
+                    </View>
+                    <CmpRow label="Ganhos" prev={comparison.previous.totalIncome} cur={comparison.current.totalIncome} />
+                    <CmpRow label="Gastos Var." prev={comparison.previous.totalExpense} cur={comparison.current.totalExpense} />
+                    <CmpRow label="Contas" prev={comparison.previous.totalBills} cur={comparison.current.totalBills} />
+                    <CmpRow label="Saldo" prev={comparison.previous.balance} cur={comparison.current.balance} />
                 </View>
-            )}
-        </ScrollView>
+
+                {/* Médias */}
+                {averages && averages.avgIncome !== undefined && (
+                    <View style={s.section}>
+                        <Text style={s.sectionTitle}>Médias Mensais ({averages.monthsAnalyzed} mês{averages.monthsAnalyzed !== 1 ? 'es' : ''})</Text>
+                        <Row label="Média de Ganhos" value={fmt(averages.avgIncome)} color={colors.income} />
+                        <Row label="Média de Gastos" value={fmt(averages.avgExpense)} color={colors.expense} />
+                        <Row label="Média de Contas" value={fmt(averages.avgBills)} />
+                        <Row label="Média de Saldo" value={fmt(averages.avgBalance)} color={averages.avgBalance >= 0 ? colors.income : colors.expense} />
+                        <Row label="Média Poupança" value={`${(averages.avgSavingsRate ?? 0).toFixed(1)}%`} />
+                    </View>
+                )}
+            </ScrollView>
+        </View>
     );
 }
 
 const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: colors.bg },
-    headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md, gap: spacing.sm },
+    stickyHeader: { backgroundColor: colors.bg, borderBottomWidth: 1, borderBottomColor: colors.border },
+    hRow1: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.sm, gap: spacing.sm },
     hamburger: { padding: 2 },
     title: { flex: 1, color: colors.textPrimary, fontSize: fontSize.xl, fontWeight: fontWeight.bold },
     empty: { color: colors.textMuted, textAlign: 'center', marginTop: 48, fontSize: fontSize.sm },
